@@ -32,7 +32,10 @@
  * questions.
  */
 
-package org.pullvert.aio.core;
+package org.pullvert.aio.tcp;
+
+import org.pullvert.aio.core.Demand;
+import org.pullvert.aio.core.SequentialScheduler;
 
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;

@@ -6,7 +6,8 @@
  * file that accompanied this code.
  */
 
-module aio.core {
+module aio.tcp {
     requires slf4j.api;
-    exports org.pullvert.aio.core;
+    requires aio.core;
+    exports org.pullvert.aio.tcp;
 }

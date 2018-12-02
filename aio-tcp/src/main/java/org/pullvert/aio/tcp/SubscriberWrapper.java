@@ -32,7 +32,7 @@
  * questions.
  */
 
-package org.pullvert.aio.core;
+package org.pullvert.aio.tcp;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
@@ -45,6 +45,10 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.pullvert.aio.core.CoreUtils;
+import org.pullvert.aio.core.FlowTube;
+import org.pullvert.aio.core.MinimalFuture;
+import org.pullvert.aio.core.SequentialScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
