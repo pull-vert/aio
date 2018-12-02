@@ -5,7 +5,7 @@
  * and is subject to the "Classpath" exception as provided in the LICENSE
  * file that accompanied this code.
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.AsyncEvent
+ * This file is a fork of OpenJDK jdk.internal.net.http.common.Pair
  *
  * INITIAL COPYRIGHT NOTICES AND FILE HEADER
  * Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
@@ -34,46 +34,28 @@
 
 package org.pullvert.aio.core;
 
-import java.io.IOException;
-import java.nio.channels.SelectableChannel;
-
 /**
- * Event handling interface from SelectableChannel's selector.
- *
- * If REPEATING is set then the event is not cancelled after being posted.
+ * A simple paired value class
  */
-abstract class AsyncEvent {
+public final class Pair<T, U> {
 
-    public static final int REPEATING = 0x2; // one off event if not set
-
-    protected final int flags;
-
-    AsyncEvent() {
-        this(0);
+    public Pair(T first, U second) {
+        this.second = second;
+        this.first = first;
     }
 
-    AsyncEvent(int flags) {
-        this.flags = flags;
+    public final T first;
+    public final U second;
+
+    // Because 'pair()' is shorter than 'new Pair<>()'.
+    // Sometimes this difference might be very significant (especially in a
+    // 80-ish characters boundary). Sorry diamond operator.
+    public static <T, U> Pair<T, U> pair(T first, U second) {
+        return new Pair<>(first, second);
     }
 
-    /** Returns the channel */
-    public abstract SelectableChannel channel();
-
-    /** Returns the selector interest op flags OR'd */
-    public abstract int interestOps();
-
-    /** Called when event occurs */
-    public abstract void handle();
-
-    /**
-     * Called when an error occurs during registration, or when the selector has
-     * been shut down. Aborts all exchanges.
-     *
-     * @param ioe  the IOException, or null
-     */
-    public abstract void abort(IOException ioe);
-
-    public boolean repeating() {
-        return (flags & REPEATING) != 0;
+    @Override
+    public String toString() {
+        return "(" + first + ", " + second + ")";
     }
 }
