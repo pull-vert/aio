@@ -8,8 +8,8 @@
  *
  * This file is a fork of OpenJDK jdk.internal.net.http.common.FlowTube
  *
- * OpendJDK licence copy is provided in the OPENJDK_LICENCE file that
- * accompanied this code.
+ * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
+ * is provided in the OPENJDK_LICENCE file that accompanied this code.
  *
  * INITIAL COPYRIGHT NOTICES AND FILE HEADER
  * Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
