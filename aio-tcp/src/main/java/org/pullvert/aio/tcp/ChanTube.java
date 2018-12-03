@@ -46,7 +46,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -57,17 +56,20 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * A SocketTube is a terminal tube plugged directly into the socket.
- * The read subscriber should call {@code subscribe} on the SocketTube before
- * the SocketTube is subscribed to the write publisher.
+ * A ChanTube is a terminal tube plugged directly into the {@linkplain java.nio.channels.SocketChannel
+ * TCP Socket Channel} or {@linkplain java.nio.channels.DatagramChannel UDP Datagram Channel} threw
+ * {@link Chan} abstraction
+ * <br>
+ * The read subscriber should call {@code subscribe} on the ChanTube before
+ * the ChanTube is subscribed to the write publisher.
  */
-final class SocketTube implements FlowTube {
+final class ChanTube implements FlowTube {
 
-    final Logger logger = LoggerFactory.getLogger(SocketTube.class);
+    final Logger logger = LoggerFactory.getLogger(ChanTube.class);
     static final AtomicLong IDS = new AtomicLong();
 
     private final TcpClient client;
-    private final SocketChannel channel;
+    private final Chan channel;
     private final SliceBufferSource sliceBuffersSource;
     private final Object lock = new Object();
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -75,8 +77,8 @@ final class SocketTube implements FlowTube {
     private final InternalWriteSubscriber writeSubscriber;
     private final long id = IDS.incrementAndGet();
 
-    public SocketTube(TcpClient client, SocketChannel channel,
-                      Supplier<ByteBuffer> buffersFactory) {
+    public ChanTube(TcpClient client, Chan channel,
+                    Supplier<ByteBuffer> buffersFactory) {
         this.client = client;
         this.channel = channel;
         this.sliceBuffersSource = new SliceBufferSource(buffersFactory);
@@ -230,11 +232,11 @@ final class SocketTube implements FlowTube {
 
         final Logger logger = LoggerFactory.getLogger(SocketFlowEvent.class);
 
-        final SocketChannel channel;
+        final Chan channel;
         final int defaultInterest;
         volatile int interestOps;
         volatile boolean registered;
-        SocketFlowEvent(int defaultInterest, SocketChannel channel) {
+        SocketFlowEvent(int defaultInterest, Chan channel) {
             super(AsyncEvent.REPEATING);
             this.defaultInterest = defaultInterest;
             this.channel = channel;
@@ -246,7 +248,7 @@ final class SocketTube implements FlowTube {
         }
         final void pause() {interestOps = 0;}
         @Override
-        public final SelectableChannel channel() {return channel;}
+        public final SelectableChannel channel() {return channel.getChannel();}
         @Override
         public final int interestOps() {return interestOps;}
 
@@ -440,8 +442,8 @@ final class SocketTube implements FlowTube {
         // A repeatable WriteEvent which is paused after firing and can
         // be resumed if required - see SocketFlowEvent;
         final class WriteEvent extends SocketFlowEvent {
-            final SocketTube.InternalWriteSubscriber sub;
-            WriteEvent(SocketChannel channel, SocketTube.InternalWriteSubscriber sub) {
+            final ChanTube.InternalWriteSubscriber sub;
+            WriteEvent(Chan channel, ChanTube.InternalWriteSubscriber sub) {
                 super(SelectionKey.OP_WRITE, channel);
                 this.sub = sub;
             }
@@ -485,7 +487,7 @@ final class SocketTube implements FlowTube {
             }
 
             void dropSubscription() {
-                synchronized (SocketTube.InternalWriteSubscriber.this) {
+                synchronized (ChanTube.InternalWriteSubscriber.this) {
                     cancelled = true;
                     if (logger.isDebugEnabled()) logger.debug("write: resetting demand to 0");
                     writeDemand.reset();
@@ -499,7 +501,7 @@ final class SocketTube implements FlowTube {
                     long d;
                     // don't fiddle with demand after cancel.
                     // see dropSubscription.
-                    synchronized (SocketTube.InternalWriteSubscriber.this) {
+                    synchronized (ChanTube.InternalWriteSubscriber.this) {
                         if (cancelled) return;
                         d = writeDemand.get();
                         requestMore = writeDemand.increaseIfFulfilled();
@@ -602,7 +604,7 @@ final class SocketTube implements FlowTube {
                 this.impl = impl;
                 this.bufferSource = subscriber.supportsRecycling()
                         ? new SSLDirectBufferSource(client)
-                        : SocketTube.this.sliceBuffersSource;
+                        : ChanTube.this.sliceBuffersSource;
                 this.subscriber = subscriber;
             }
 
@@ -931,7 +933,7 @@ final class SocketTube implements FlowTube {
         // be resumed if required - see SocketFlowEvent;
         final class ReadEvent extends SocketFlowEvent {
             final InternalReadSubscription sub;
-            ReadEvent(SocketChannel channel, InternalReadSubscription sub) {
+            ReadEvent(Chan channel, InternalReadSubscription sub) {
                 super(SelectionKey.OP_READ, channel);
                 this.sub = sub;
             }
@@ -1052,14 +1054,14 @@ final class SocketTube implements FlowTube {
             buf.limit(limit);
 
             // add the buffer to the list
-            return SocketTube.listOf(list, slice.asReadOnlyBuffer());
+            return ChanTube.listOf(list, slice.asReadOnlyBuffer());
         }
     }
 
 
     // An implementation of BufferSource used for encrypted data.
     // This buffer source uses direct byte buffers that will be
-    // recycled by the SocketTube subscriber.
+    // recycled by the ChanTube subscriber.
     //
     private static final class SSLDirectBufferSource implements BufferSource {
         private final BufferSupplier factory;
@@ -1105,7 +1107,7 @@ final class SocketTube implements FlowTube {
             buf.limit(buf.position());
             buf.position(start);
             // add the buffer to the list
-            return SocketTube.listOf(list, buf);
+            return ChanTube.listOf(list, buf);
         }
 
         @Override
@@ -1278,7 +1280,7 @@ final class SocketTube implements FlowTube {
     }
 
     final String dbgString() {
-        return "SocketTube("+id+")";
+        return "ChanTube("+id+")";
     }
 
     final String channelDescr() {
