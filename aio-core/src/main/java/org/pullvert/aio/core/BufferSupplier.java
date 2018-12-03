@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.AsyncTriggerEvent
+ * This file is a fork of OpenJDK jdk.internal.net.http.common.BufferSupplier
  *
  * OpendJDK licence copy is provided in the OPENJDK_LICENCE file that
  * accompanied this code.
@@ -38,35 +38,43 @@
 
 package org.pullvert.aio.core;
 
-import java.io.IOException;
-import java.nio.channels.SelectableChannel;
-import java.util.Objects;
-import java.util.function.Consumer;
+import java.nio.ByteBuffer;
+import java.util.function.Supplier;
 
 /**
- * An asynchronous event which is triggered only once from the selector manager
- * thread as soon as event registration are handled.
- */
-public final class AsyncTriggerEvent extends AsyncEvent{
+ *  This interface allows to recycle buffers used for SSL decryption.
+ *  Buffers that are used for reading SSL encrypted data are typically
+ *  very short lived, as it is necessary to aggregate their content
+ *  before calling SSLEngine::unwrap.
+ *  Because both reading and copying happen in the SelectorManager
+ *  thread, then it makes it possible to pool these buffers and
+ *  recycle them for the next socket read, instead of simply
+ *  letting them be GC'ed. That also makes it possible to use
+ *  direct byte buffers, and avoid another layer of copying by
+ *  the SocketChannel implementation.
+ *
+ *  The HttpClientImpl has an implementation of this interface
+ *  that allows to reuse the same 3 direct buffers for reading
+ *  off SSL encrypted data from the socket.
+ *  The BufferSupplier::get method is called by SocketTube
+ *  (see SocketTube.SSLDirectBufferSource) and BufferSupplier::recycle
+ *  is called by SSLFlowDelegate.Reader.
+ **/
+public interface BufferSupplier extends Supplier<ByteBuffer> {
+    /**
+     * Returns a buffer to read encrypted data off the socket.
+     * @return a buffer to read encrypted data off the socket.
+     */
+    ByteBuffer get();
 
-    private final Runnable trigger;
-    private final Consumer<? super IOException> errorHandler;
-    public AsyncTriggerEvent(Consumer<? super IOException> errorHandler,
-                      Runnable trigger) {
-        super(0);
-        this.trigger = Objects.requireNonNull(trigger);
-        this.errorHandler = Objects.requireNonNull(errorHandler);
-    }
-    /** Returns null */
-    @Override
-    public SelectableChannel channel() { return null; }
-    /** Returns 0 */
-    @Override
-    public int interestOps() { return 0; }
-    @Override
-    public void handle() { trigger.run(); }
-    @Override
-    public void abort(IOException ioe) { errorHandler.accept(ioe); }
-    @Override
-    public boolean repeating() { return false; }
+    /**
+     * Returns a buffer to the pool.
+     *
+     * @param buffer This must be a buffer previously obtained
+     *               by calling BufferSupplier::get. The caller must
+     *               not touch the buffer after returning it to
+     *               the pool.
+     */
+    void recycle(ByteBuffer buffer);
 }
+

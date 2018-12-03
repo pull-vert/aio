@@ -75,11 +75,8 @@ import org.slf4j.LoggerFactory;
  * at any time.
  */
 public abstract class SubscriberWrapper
-    implements FlowTube.TubeSubscriber, Closeable, Flow.Processor<List<ByteBuffer>, List<ByteBuffer>>
-                // TODO: SSLTube Subscriber will never change? Does this really need to be a TS?
-{
-    final Logger logger =
-            LoggerFactory.getLogger(SubscriberWrapper.class);
+    implements FlowTube.TubeSubscriber, Closeable, Flow.Processor<List<ByteBuffer>, List<ByteBuffer>> {
+    final Logger logger = LoggerFactory.getLogger(SubscriberWrapper.class);
 
     public enum SchedulingAction { CONTINUE, RETURN, RESCHEDULE }
 

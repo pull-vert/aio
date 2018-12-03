@@ -46,7 +46,7 @@ import java.nio.channels.SelectableChannel;
  *
  * If REPEATING is set then the event is not cancelled after being posted.
  */
-abstract class AsyncEvent {
+public abstract class AsyncEvent {
 
     public static final int REPEATING = 0x2; // one off event if not set
 
@@ -56,7 +56,7 @@ abstract class AsyncEvent {
         this(0);
     }
 
-    AsyncEvent(int flags) {
+    public AsyncEvent(int flags) {
         this.flags = flags;
     }
 
