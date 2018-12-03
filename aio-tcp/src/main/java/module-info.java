@@ -7,7 +7,7 @@
  */
 
 module aio.tcp {
-    requires slf4j.api;
     requires aio.core;
+    requires org.slf4j;
     exports org.pullvert.aio.tcp;
 }

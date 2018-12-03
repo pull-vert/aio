@@ -7,6 +7,6 @@
  */
 
 module aio.core {
-    requires slf4j.api;
+    requires org.slf4j;
     exports org.pullvert.aio.core;
 }
