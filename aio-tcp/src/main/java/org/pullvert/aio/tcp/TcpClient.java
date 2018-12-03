@@ -46,11 +46,18 @@ import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 
 public interface TcpClient {
+
+    /**
+     * Wait for activity on given exchange.
+     * The following occurs in the SelectorManager thread.
+     *
+     *  1) add to selector
+     *  2) If selector fires for this exchange then
+     *     call AsyncEvent.handle()
+     *
+     * If exchange needs to change interest ops, then call registerEvent() again.
+     */
     public void registerEvent(AsyncEvent exchange);
-
-    public boolean isSelectorThread();
-
-    public DelegatingExecutor theExecutor();
 
     /**
      * Allows an AsyncEvent to modify its interestOps.
@@ -58,6 +65,22 @@ public interface TcpClient {
      */
     public void eventUpdated(AsyncEvent event) throws ClosedChannelException;
 
+    public boolean isSelectorThread();
+
+    public DelegatingExecutor theExecutor();
+
+    // Optimization for reading SSL encrypted data
+    // --------------------------------------------
+
+    // Returns a BufferSupplier that can be used for reading
+    // encrypted bytes of the channel. These buffers can then
+    // be recycled by the SSLFlowDelegate::Reader after their
+    // content has been copied in the SSLFlowDelegate::Reader
+    // readBuf.
+    // Because allocating, reading, copying, and recycling
+    // all happen in the SelectorManager thread,
+    // then this BufferSupplier can be shared between all
+    // the SSL connections managed by this client.
     public BufferSupplier getSSLBufferSupplier();
 
     /**
