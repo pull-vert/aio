@@ -5,7 +5,11 @@
  * and is subject to the "Classpath" exception as provided in the LICENSE
  * file that accompanied this code.
  *
+ *
  * This file is a fork of OpenJDK jdk.internal.net.http.common.FlowTube
+ *
+ * OpendJDK licence copy is provided in the OPENJDK_LICENCE file that
+ * accompanied this code.
  *
  * INITIAL COPYRIGHT NOTICES AND FILE HEADER
  * Copyright (c) 2016, 2018, Oracle and/or its affiliates. All rights reserved.
