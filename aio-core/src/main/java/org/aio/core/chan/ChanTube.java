@@ -36,10 +36,9 @@
  * questions.
  */
 
-package org.aio.tcp;
+package org.aio.core.chan;
 
 import org.aio.core.*;
-import org.aio.core.chan.Chan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,8 +68,8 @@ final class ChanTube implements FlowTube {
     final Logger logger = LoggerFactory.getLogger(ChanTube.class);
     static final AtomicLong IDS = new AtomicLong();
 
-    private final TcpClient client;
-    private final Chan channel;
+    private final ServerOrClient serverOrClient;
+    private final Chan chan;
     private final SliceBufferSource sliceBuffersSource;
     private final Object lock = new Object();
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -78,10 +77,10 @@ final class ChanTube implements FlowTube {
     private final InternalWriteSubscriber writeSubscriber;
     private final long id = IDS.incrementAndGet();
 
-    public ChanTube(TcpClient client, Chan channel,
+    public ChanTube(ServerOrClient serverOrClient, Chan chan,
                     Supplier<ByteBuffer> buffersFactory) {
-        this.client = client;
-        this.channel = channel;
+        this.serverOrClient = serverOrClient;
+        this.chan = chan;
         this.sliceBuffersSource = new SliceBufferSource(buffersFactory);
 
         this.readPublisher = new InternalReadPublisher();
@@ -118,7 +117,7 @@ final class ChanTube implements FlowTube {
     @Override
     public void subscribe(Flow.Subscriber<? super List<ByteBuffer>> s) {
         Objects.requireNonNull(s);
-        assert s instanceof FlowTube.TubeSubscriber : "Expected TubeSubscriber, got:" + s;
+        assert s instanceof TubeSubscriber : "Expected TubeSubscriber, got:" + s;
         readPublisher.subscribe(s);
     }
 
@@ -287,7 +286,7 @@ final class ChanTube implements FlowTube {
         volatile boolean completed;
         final AsyncTriggerEvent startSubscription =
                 new AsyncTriggerEvent(this::signalError, this::startSubscription);
-        final WriteEvent writeEvent = new WriteEvent(channel, this);
+        final WriteEvent writeEvent = new WriteEvent(chan, this);
         final Demand writeDemand = new Demand();
 
         @Override
@@ -305,7 +304,7 @@ final class ChanTube implements FlowTube {
                 if (needEvent) {
                     if (logger.isDebugEnabled())
                         logger.debug("write: registering startSubscription event");
-                    client.registerEvent(startSubscription);
+                    serverOrClient.registerEvent(startSubscription);
                 }
             } catch (Throwable t) {
                 signalError(t);
@@ -319,14 +318,14 @@ final class ChanTube implements FlowTube {
             assert subscription != null : dbgString()
                     + "w.onNext: subscription is null";
             current = bufs;
-            tryFlushCurrent(client.isSelectorThread()); // may be in selector thread
+            tryFlushCurrent(serverOrClient.isSelectorThread()); // may be in selector thread
             // For instance in HTTP/2, a received SETTINGS frame might trigger
             // the sending of a SETTINGS frame in turn which might cause
             // onNext to be called from within the same selector thread that the
             // original SETTINGS frames arrived on. If rs is the read-subscriber
             // and ws is the write-subscriber then the following can occur:
             // ReadEvent -> rs.onNext(bytes) -> process server SETTINGS -> write
-            // client SETTINGS -> ws.onNext(bytes) -> tryFlushCurrent
+            // serverOrClient SETTINGS -> ws.onNext(bytes) -> tryFlushCurrent
             debugState("leaving w.onNext");
         }
 
@@ -347,7 +346,7 @@ final class ChanTube implements FlowTube {
             List<ByteBuffer> bufs = current;
             if (bufs == null) return;
             try {
-                assert inSelectorThread == client.isSelectorThread() :
+                assert inSelectorThread == serverOrClient.isSelectorThread() :
                        "should " + (inSelectorThread ? "" : "not ")
                         + " be in the selector thread";
                 long remaining = CoreUtils.remaining(bufs);
@@ -361,10 +360,10 @@ final class ChanTube implements FlowTube {
                     if (writeDemand.tryDecrement()) {
                         Runnable requestMore = this::requestMore;
                         if (inSelectorThread) {
-                            assert client.isSelectorThread();
-                            client.theExecutor().execute(requestMore);
+                            assert serverOrClient.isSelectorThread();
+                            serverOrClient.theExecutor().execute(requestMore);
                         } else {
-                            assert !client.isSelectorThread();
+                            assert !serverOrClient.isSelectorThread();
                             requestMore.run();
                         }
                     }
@@ -382,15 +381,15 @@ final class ChanTube implements FlowTube {
             try {
                 if (logger.isDebugEnabled()) {
                     logger.debug("write: starting subscription");
-                    logger.debug("Start requesting bytes for writing to channel: {}",
+                    logger.debug("Start requesting bytes for writing to chan: {}",
                             channelDescr());
                 }
-                assert client.isSelectorThread();
+                assert serverOrClient.isSelectorThread();
                 // make sure read registrations are handled before;
                 readPublisher.subscriptionImpl.handlePending();
                 if (logger.isDebugEnabled()) logger.debug("write: offloading requestMore");
                 // start writing;
-                client.theExecutor().execute(this::requestMore);
+                serverOrClient.theExecutor().execute(this::requestMore);
             } catch(Throwable t) {
                 signalError(t);
             }
@@ -424,14 +423,14 @@ final class ChanTube implements FlowTube {
         }
 
         void signalWritable() {
-            if (logger.isDebugEnabled()) logger.debug("channel is writable");
+            if (logger.isDebugEnabled()) logger.debug("chan is writable");
             tryFlushCurrent(true);
         }
 
         void signalError(Throwable error) {
             if (logger.isDebugEnabled()) {
                 logger.debug("write error: " + error);
-                logger.debug("Failed to write to channel ({}: {})",
+                logger.debug("Failed to write to chan ({}: {})",
                         channelDescr(), error);
             }
             completed = true;
@@ -451,7 +450,7 @@ final class ChanTube implements FlowTube {
             @Override
             protected final void signalEvent() {
                 try {
-                    client.eventUpdated(this);
+                    serverOrClient.eventUpdated(this);
                     sub.signalWritable();
                 } catch(Throwable t) {
                     sub.signalError(t);
@@ -537,14 +536,14 @@ final class ChanTube implements FlowTube {
     // right after the errorRef has been set.
     // Because the sequential scheduler's task always checks for errors first,
     // and always terminate the scheduler on error, then it is safe to assume
-    // that if it reaches the point where it reads from the channel, then
+    // that if it reaches the point where it reads from the chan, then
     // it is running in the SelectorManager thread. This is because all
     // other invocation of runOrSchedule() are triggered from within a
     // ReadEvent.
     //
     // When pausing/resuming the event, some shortcuts can then be taken
     // when we know we're running in the selector manager thread
-    // (in that case there's no need to call client.eventUpdated(readEvent);
+    // (in that case there's no need to call serverOrClient.eventUpdated(readEvent);
     //
     private final class InternalReadPublisher
             implements Flow.Publisher<List<ByteBuffer>> {
@@ -557,7 +556,7 @@ final class ChanTube implements FlowTube {
         public void subscribe(Flow.Subscriber<? super List<ByteBuffer>> s) {
             Objects.requireNonNull(s);
 
-            FlowTube.TubeSubscriber sub = FlowTube.asTubeSubscriber(s);
+            TubeSubscriber sub = FlowTube.asTubeSubscriber(s);
             ReadSubscription target = new ReadSubscription(subscriptionImpl, sub);
             ReadSubscription previous = pendingSubscription.getAndSet(target);
 
@@ -585,7 +584,7 @@ final class ChanTube implements FlowTube {
                 return;
             }
             if (logger.isDebugEnabled()) {
-                logger.debug("Error signalled on channel {}: {}",
+                logger.debug("Error signalled on chan {}: {}",
                         channelDescr(), error);
             }
             subscriptionImpl.handleError();
@@ -593,7 +592,7 @@ final class ChanTube implements FlowTube {
 
         final class ReadSubscription implements Flow.Subscription {
             final InternalReadSubscription impl;
-            final FlowTube.TubeSubscriber subscriber;
+            final TubeSubscriber subscriber;
             final AtomicReference<Throwable> errorRef = new AtomicReference<>();
             final BufferSource bufferSource;
             volatile boolean subscribed;
@@ -601,10 +600,10 @@ final class ChanTube implements FlowTube {
             volatile boolean completed;
 
             public ReadSubscription(InternalReadSubscription impl,
-                                    FlowTube.TubeSubscriber subscriber) {
+                                    TubeSubscriber subscriber) {
                 this.impl = impl;
                 this.bufferSource = subscriber.supportsRecycling()
-                        ? new SSLDirectBufferSource(client)
+                        ? new SSLDirectBufferSource(serverOrClient)
                         : ChanTube.this.sliceBuffersSource;
                 this.subscriber = subscriber;
             }
@@ -668,7 +667,7 @@ final class ChanTube implements FlowTube {
                 readScheduler = new SequentialScheduler(new SocketFlowTask(this::read));
                 subscribeEvent = new AsyncTriggerEvent(this::signalError,
                                                        this::handleSubscribeEvent);
-                readEvent = new ReadEvent(channel, this);
+                readEvent = new ReadEvent(chan, this);
             }
 
             /*
@@ -684,7 +683,7 @@ final class ChanTube implements FlowTube {
                 } else {
                     try {
                         if (logger.isDebugEnabled()) logger.debug("registering subscribe event");
-                        client.registerEvent(subscribeEvent);
+                        serverOrClient.registerEvent(subscribeEvent);
                     } catch (Throwable t) {
                         signalError(t);
                         handlePending();
@@ -693,7 +692,7 @@ final class ChanTube implements FlowTube {
             }
 
             final void handleSubscribeEvent() {
-                assert client.isSelectorThread();
+                assert serverOrClient.isSelectorThread();
                 if (logger.isDebugEnabled()) {
                     logger.debug("subscribe event raised");
                     logger.debug("Start reading from {}", channelDescr());
@@ -736,7 +735,7 @@ final class ChanTube implements FlowTube {
             public final void cancel() {
                 pauseReadEvent();
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Read subscription cancelled for channel {}",
+                    logger.debug("Read subscription cancelled for chan {}",
                             channelDescr());
                 }
                 readScheduler.stop();
@@ -763,7 +762,7 @@ final class ChanTube implements FlowTube {
                     return;
                 }
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Read error signalled on channel {}: {}",
+                    logger.debug("Read error signalled on chan {}: {}",
                             channelDescr(), error);
                 }
                 readScheduler.runOrSchedule();
@@ -804,7 +803,7 @@ final class ChanTube implements FlowTube {
                                           (Object)error);
                             return;
                         }
-                        FlowTube.TubeSubscriber subscriber = current.subscriber;
+                        TubeSubscriber subscriber = current.subscriber;
                         if (error != null) {
                             completed = true;
                             // safe to pause here because we're finished anyway.
@@ -821,7 +820,7 @@ final class ChanTube implements FlowTube {
                         }
 
                         // If we reach here then we must be in the selector thread.
-                        assert client.isSelectorThread();
+                        assert serverOrClient.isSelectorThread();
                         if (demand.tryDecrement()) {
                             // we have demand.
                             try {
@@ -829,7 +828,7 @@ final class ChanTube implements FlowTube {
                                 if (bytes == EOF) {
                                     if (!completed) {
                                         if (logger.isDebugEnabled()) {
-                                            logger.debug("EOF read from channel: {}",
+                                            logger.debug("EOF read from chan: {}",
                                                         channelDescr());
                                         }
                                         completed = true;
@@ -895,7 +894,7 @@ final class ChanTube implements FlowTube {
                 } finally {
                     if (readScheduler.isStopped()) {
                         if (logger.isDebugEnabled()) {
-                            logger.debug("Read scheduler stopped from channel {0}", channelDescr());
+                            logger.debug("Read scheduler stopped from chan {0}", channelDescr());
                         }
                     }
                     handlePending();
@@ -941,7 +940,7 @@ final class ChanTube implements FlowTube {
             @Override
             protected final void signalEvent() {
                 try {
-                    client.eventUpdated(this);
+                    serverOrClient.eventUpdated(this);
                     sub.signalReadable();
                 } catch(Throwable t) {
                     sub.signalError(t);
@@ -1066,10 +1065,10 @@ final class ChanTube implements FlowTube {
     //
     private static final class SSLDirectBufferSource implements BufferSource {
         private final BufferSupplier factory;
-        private final TcpClient client;
+        private final ServerOrClient client;
         private ByteBuffer current;
 
-        public SSLDirectBufferSource(TcpClient client) {
+        public SSLDirectBufferSource(ServerOrClient client) {
             this.client = Objects.requireNonNull(client);
             this.factory = Objects.requireNonNull(client.getSSLBufferSupplier());
         }
@@ -1097,7 +1096,7 @@ final class ChanTube implements FlowTube {
         // Because socket tube can read up to MAX_BUFFERS = 3 buffers, and because
         // recycling will happen in the flow before onNext returns, then the
         // pool can not grow larger than MAX_BUFFERS = 3 buffers, even though
-        // it's shared by all SSL connections opened on that client.
+        // it's shared by all SSL connections opened on that serverOrClient.
         @Override
         public final List<ByteBuffer> append(List<ByteBuffer> list, ByteBuffer buf, int start) {
             assert client.isSelectorThread();
@@ -1141,7 +1140,7 @@ final class ChanTube implements FlowTube {
     // When that happens, a slice of the data that has been read so far
     // is inserted into the returned buffer list, and if the current buffer
     // has remaining space, that space will be used to read more data when
-    // the channel becomes readable again.
+    // the chan becomes readable again.
     private List<ByteBuffer> readAvailable(BufferSource buffersSource) throws IOException {
         ByteBuffer buf = buffersSource.getBuffer();
         assert buf.hasRemaining();
@@ -1151,7 +1150,7 @@ final class ChanTube implements FlowTube {
         List<ByteBuffer> list = null;
         while (buf.hasRemaining()) {
             try {
-                while ((read = channel.read(buf)) > 0) {
+                while ((read = chan.read(buf)) > 0) {
                     if (!buf.hasRemaining())
                         break;
                 }
@@ -1217,7 +1216,7 @@ final class ChanTube implements FlowTube {
         long written = 0;
         while (remaining > written) {
             try {
-                long w = channel.write(srcs);
+                long w = chan.write(srcs);
                 assert w >= 0 : "negative number of bytes written:" + w;
                 if (w == 0) {
                     break;
@@ -1245,9 +1244,9 @@ final class ChanTube implements FlowTube {
         }
         try {
             if (registrationRequired) {
-                client.registerEvent(event);
+                serverOrClient.registerEvent(event);
              } else {
-                client.eventUpdated(event);
+                serverOrClient.eventUpdated(event);
             }
         } catch(Throwable t) {
             errorSignaler.accept(t);
@@ -1260,15 +1259,15 @@ final class ChanTube implements FlowTube {
             event.pause();
         }
         try {
-            client.eventUpdated(event);
+            serverOrClient.eventUpdated(event);
         } catch(Throwable t) {
             errorSignaler.accept(t);
         }
     }
 
     @Override
-    public void connectFlows(FlowTube.TubePublisher writePublisher,
-                             FlowTube.TubeSubscriber readSubscriber) {
+    public void connectFlows(TubePublisher writePublisher,
+                             TubeSubscriber readSubscriber) {
         if (logger.isDebugEnabled()) logger.debug("connecting flows");
         this.subscribe(readSubscriber);
         writePublisher.subscribe(this);
@@ -1285,6 +1284,6 @@ final class ChanTube implements FlowTube {
     }
 
     final String channelDescr() {
-        return String.valueOf(channel);
+        return String.valueOf(chan);
     }
 }

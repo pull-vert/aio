@@ -20,8 +20,9 @@ public interface ChanEvtsEmitterOut<OUT> {
 
     public void send();
 
+    // todo needed ?
 //    public CompletionStage<Void> closeForSend();
-//
+    // todo needed ?
 //    public CompletionStage<Void> closeForReceive();
 
     /**

@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.tcp;
+package org.aio.core.chan;
 
 import org.aio.core.AsyncEvent;
 import org.aio.core.BufferSupplier;
@@ -45,7 +45,7 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 
-public interface TcpClient {
+public interface ServerOrClient {
 
     /**
      * Wait for activity on given exchange.
@@ -81,6 +81,7 @@ public interface TcpClient {
     // all happen in the SelectorManager thread,
     // then this BufferSupplier can be shared between all
     // the SSL connections managed by this client.
+    // todo TCP specific
     public BufferSupplier getSSLBufferSupplier();
 
     /**
