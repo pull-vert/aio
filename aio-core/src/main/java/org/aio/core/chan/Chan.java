@@ -34,5 +34,5 @@ public abstract class Chan /*extends ChanEvtsEmitterOut<ByteBuffer[]>*/ {
      *          If this channel is not yet connected
      */
     // todo : use UncheckedIOException instead and throws nothing
-    abstract protected int write(ByteBuffer[] srcs) throws IOException;
+    abstract protected long write(ByteBuffer[] srcs) throws IOException;
 }

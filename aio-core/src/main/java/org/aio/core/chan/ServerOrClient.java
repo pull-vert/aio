@@ -69,21 +69,6 @@ public interface ServerOrClient {
 
     public DelegatingExecutor theExecutor();
 
-    // Optimization for reading SSL encrypted data
-    // --------------------------------------------
-
-    // Returns a BufferSupplier that can be used for reading
-    // encrypted bytes of the channel. These buffers can then
-    // be recycled by the SSLFlowDelegate::Reader after their
-    // content has been copied in the SSLFlowDelegate::Reader
-    // readBuf.
-    // Because allocating, reading, copying, and recycling
-    // all happen in the SelectorManager thread,
-    // then this BufferSupplier can be shared between all
-    // the SSL connections managed by this client.
-    // todo TCP specific
-    public BufferSupplier getSSLBufferSupplier();
-
     /**
      * A DelegatingExecutor is an executor that delegates tasks to
      * a wrapped executor when it detects that the current thread
