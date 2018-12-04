@@ -6,7 +6,7 @@
  * file that accompanied this code.
  */
 
-group 'org.pull-vert'
+group 'org.aio'
 version '0.1-SNAPSHOT'
 
 subprojects {

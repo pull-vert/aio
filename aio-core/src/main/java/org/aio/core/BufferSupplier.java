@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.PrivilegedExecutor
+ * This file is a fork of OpenJDK jdk.internal.net.http.common.BufferSupplier
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,47 +36,45 @@
  * questions.
  */
 
-package org.pullvert.aio.core;
+package org.aio.core;
 
-import java.security.AccessControlContext;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.Objects;
-import java.util.concurrent.Executor;
+import java.nio.ByteBuffer;
+import java.util.function.Supplier;
 
 /**
- * Executes tasks within a given access control context, and by a given executor.
- */
-class PrivilegedExecutor implements Executor {
+ *  This interface allows to recycle buffers used for SSL decryption.
+ *  Buffers that are used for reading SSL encrypted data are typically
+ *  very short lived, as it is necessary to aggregate their content
+ *  before calling SSLEngine::unwrap.
+ *  Because both reading and copying happen in the SelectorManager
+ *  thread, then it makes it possible to pool these buffers and
+ *  recycle them for the next socket read, instead of simply
+ *  letting them be GC'ed. That also makes it possible to use
+ *  direct byte buffers, and avoid another layer of copying by
+ *  the SocketChannel implementation.
+ *
+ *  The HttpClientImpl has an implementation of this interface
+ *  that allows to reuse the same 3 direct buffers for reading
+ *  off SSL encrypted data from the socket.
+ *  The BufferSupplier::get method is called by SocketTube
+ *  (see SocketTube.SSLDirectBufferSource) and BufferSupplier::recycle
+ *  is called by SSLFlowDelegate.Reader.
+ **/
+public interface BufferSupplier extends Supplier<ByteBuffer> {
+    /**
+     * Returns a buffer to read encrypted data off the socket.
+     * @return a buffer to read encrypted data off the socket.
+     */
+    ByteBuffer get();
 
-    /** The underlying executor. May be provided by the user. */
-    final Executor executor;
-    /** The ACC to execute the tasks within. */
-    final AccessControlContext acc;
-
-    public PrivilegedExecutor(Executor executor, AccessControlContext acc) {
-        Objects.requireNonNull(executor);
-        Objects.requireNonNull(acc);
-        this.executor = executor;
-        this.acc = acc;
-    }
-
-    private static class PrivilegedRunnable implements Runnable {
-        private final Runnable r;
-        private final AccessControlContext acc;
-        PrivilegedRunnable(Runnable r, AccessControlContext acc) {
-            this.r = r;
-            this.acc = acc;
-        }
-        @Override
-        public void run() {
-            PrivilegedAction<Void> pa = () -> { r.run(); return null; };
-            AccessController.doPrivileged(pa, acc);
-        }
-    }
-
-    @Override
-    public void execute(Runnable r) {
-        executor.execute(new PrivilegedRunnable(r, acc));
-    }
+    /**
+     * Returns a buffer to the pool.
+     *
+     * @param buffer This must be a buffer previously obtained
+     *               by calling BufferSupplier::get. The caller must
+     *               not touch the buffer after returning it to
+     *               the pool.
+     */
+    void recycle(ByteBuffer buffer);
 }
+

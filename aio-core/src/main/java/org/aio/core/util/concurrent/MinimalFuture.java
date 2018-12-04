@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.pullvert.aio.core.util.concurrent;
+package org.aio.core.util.concurrent;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;

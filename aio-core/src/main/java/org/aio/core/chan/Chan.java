@@ -6,7 +6,7 @@
  * file that accompanied this code.
  */
 
-package org.pullvert.aio.core.chan;
+package org.aio.core.chan;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

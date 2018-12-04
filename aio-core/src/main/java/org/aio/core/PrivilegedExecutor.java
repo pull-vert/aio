@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.common.Pair
+ * This file is a fork of OpenJDK jdk.internal.net.http.PrivilegedExecutor
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,30 +36,47 @@
  * questions.
  */
 
-package org.pullvert.aio.core;
+package org.aio.core;
+
+import java.security.AccessControlContext;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Objects;
+import java.util.concurrent.Executor;
 
 /**
- * A simple paired value class
+ * Executes tasks within a given access control context, and by a given executor.
  */
-public final class Pair<T, U> {
+class PrivilegedExecutor implements Executor {
 
-    public Pair(T first, U second) {
-        this.second = second;
-        this.first = first;
+    /** The underlying executor. May be provided by the user. */
+    final Executor executor;
+    /** The ACC to execute the tasks within. */
+    final AccessControlContext acc;
+
+    public PrivilegedExecutor(Executor executor, AccessControlContext acc) {
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(acc);
+        this.executor = executor;
+        this.acc = acc;
     }
 
-    public final T first;
-    public final U second;
-
-    // Because 'pair()' is shorter than 'new Pair<>()'.
-    // Sometimes this difference might be very significant (especially in a
-    // 80-ish characters boundary). Sorry diamond operator.
-    public static <T, U> Pair<T, U> pair(T first, U second) {
-        return new Pair<>(first, second);
+    private static class PrivilegedRunnable implements Runnable {
+        private final Runnable r;
+        private final AccessControlContext acc;
+        PrivilegedRunnable(Runnable r, AccessControlContext acc) {
+            this.r = r;
+            this.acc = acc;
+        }
+        @Override
+        public void run() {
+            PrivilegedAction<Void> pa = () -> { r.run(); return null; };
+            AccessController.doPrivileged(pa, acc);
+        }
     }
 
     @Override
-    public String toString() {
-        return "(" + first + ", " + second + ")";
+    public void execute(Runnable r) {
+        executor.execute(new PrivilegedRunnable(r, acc));
     }
 }

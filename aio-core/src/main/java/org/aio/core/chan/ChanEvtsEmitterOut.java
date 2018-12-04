@@ -6,7 +6,7 @@
  * file that accompanied this code.
  */
 
-package org.pullvert.aio.core.chan;
+package org.aio.core.chan;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;

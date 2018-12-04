@@ -36,10 +36,10 @@
  * questions.
  */
 
-package org.pullvert.aio.tcp;
+package org.aio.tcp;
 
-import org.pullvert.aio.core.*;
-import org.pullvert.aio.core.chan.Chan;
+import org.aio.core.*;
+import org.aio.core.chan.Chan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

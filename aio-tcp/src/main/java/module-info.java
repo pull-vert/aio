@@ -9,5 +9,5 @@
 module aio.tcp {
     requires aio.core;
     requires org.slf4j;
-    exports org.pullvert.aio.tcp;
+    exports org.aio.tcp;
 }

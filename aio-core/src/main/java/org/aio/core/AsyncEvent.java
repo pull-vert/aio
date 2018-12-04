@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.common.BufferSupplier
+ * This file is a fork of OpenJDK jdk.internal.net.http.AsyncEvent
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,45 +36,48 @@
  * questions.
  */
 
-package org.pullvert.aio.core;
+package org.aio.core;
 
-import java.nio.ByteBuffer;
-import java.util.function.Supplier;
+import java.io.IOException;
+import java.nio.channels.SelectableChannel;
 
 /**
- *  This interface allows to recycle buffers used for SSL decryption.
- *  Buffers that are used for reading SSL encrypted data are typically
- *  very short lived, as it is necessary to aggregate their content
- *  before calling SSLEngine::unwrap.
- *  Because both reading and copying happen in the SelectorManager
- *  thread, then it makes it possible to pool these buffers and
- *  recycle them for the next socket read, instead of simply
- *  letting them be GC'ed. That also makes it possible to use
- *  direct byte buffers, and avoid another layer of copying by
- *  the SocketChannel implementation.
+ * Event handling interface from SelectableChannel's selector.
  *
- *  The HttpClientImpl has an implementation of this interface
- *  that allows to reuse the same 3 direct buffers for reading
- *  off SSL encrypted data from the socket.
- *  The BufferSupplier::get method is called by SocketTube
- *  (see SocketTube.SSLDirectBufferSource) and BufferSupplier::recycle
- *  is called by SSLFlowDelegate.Reader.
- **/
-public interface BufferSupplier extends Supplier<ByteBuffer> {
-    /**
-     * Returns a buffer to read encrypted data off the socket.
-     * @return a buffer to read encrypted data off the socket.
-     */
-    ByteBuffer get();
+ * If REPEATING is set then the event is not cancelled after being posted.
+ */
+public abstract class AsyncEvent {
+
+    public static final int REPEATING = 0x2; // one off event if not set
+
+    protected final int flags;
+
+    AsyncEvent() {
+        this(0);
+    }
+
+    public AsyncEvent(int flags) {
+        this.flags = flags;
+    }
+
+    /** Returns the channel */
+    public abstract SelectableChannel channel();
+
+    /** Returns the selector interest op flags OR'd */
+    public abstract int interestOps();
+
+    /** Called when event occurs */
+    public abstract void handle();
 
     /**
-     * Returns a buffer to the pool.
+     * Called when an error occurs during registration, or when the selector has
+     * been shut down. Aborts all exchanges.
      *
-     * @param buffer This must be a buffer previously obtained
-     *               by calling BufferSupplier::get. The caller must
-     *               not touch the buffer after returning it to
-     *               the pool.
+     * @param ioe  the IOException, or null
      */
-    void recycle(ByteBuffer buffer);
-}
+    public abstract void abort(IOException ioe);
 
+    public boolean repeating() {
+        return (flags & REPEATING) != 0;
+    }
+}

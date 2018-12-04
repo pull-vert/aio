@@ -36,10 +36,10 @@
  * questions.
  */
 
-package org.pullvert.aio.tcp;
+package org.aio.tcp;
 
-import org.pullvert.aio.core.Demand;
-import org.pullvert.aio.core.SequentialScheduler;
+import org.aio.core.Demand;
+import org.aio.core.SequentialScheduler;
 
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
