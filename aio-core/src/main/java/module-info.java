@@ -9,4 +9,6 @@
 module aio.core {
     requires org.slf4j;
     exports org.pullvert.aio.core;
+    exports org.pullvert.aio.core.chan;
+    exports org.pullvert.aio.core.util.concurrent;
 }

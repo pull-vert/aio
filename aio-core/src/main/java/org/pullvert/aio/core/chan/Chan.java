@@ -6,18 +6,17 @@
  * file that accompanied this code.
  */
 
-package org.pullvert.aio.core;
+package org.pullvert.aio.core.chan;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 
 /**
- * Interface abstraction over {@linkplain java.nio.channels.SocketChannel
- * TCP Socket Channel} or {@linkplain java.nio.channels.DatagramChannel UDP Datagram Channel}
- * and provide read and write operations
+ * Interface abstraction over {@linkplain java.nio.channels.SelectableChannel
+ * NIO Selectable Channel}
  */
-public interface Chan {
+public interface Chan /*extends ChanEvtsEmitterOut<ByteBuffer[]>*/ {
     /**
      * @return The delegated {@link SelectableChannel}
      */

@@ -39,6 +39,7 @@
 package org.pullvert.aio.tcp;
 
 import org.pullvert.aio.core.*;
+import org.pullvert.aio.core.chan.Chan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +58,7 @@ import java.util.function.Supplier;
 
 /**
  * A ChanTube is a terminal tube plugged directly into the {@linkplain java.nio.channels.SocketChannel
- * TCP Socket Channel} or {@linkplain java.nio.channels.DatagramChannel UDP Datagram Channel} threw
+ * TCP Socket Channel} or {@linkplain java.nio.channels.DatagramChannel UDP Datagram Channel} through
  * {@link Chan} abstraction
  * <br>
  * The read subscriber should call {@code subscribe} on the ChanTube before

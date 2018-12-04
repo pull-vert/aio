@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.pullvert.aio.core;
+package org.pullvert.aio.core.util.concurrent;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
  * A CompletableFuture which does not allow any obtrusion logic.
  * All methods of CompletionStage return instances of this class.
  */
-public final class MinimalFuture<T> extends CompletableFuture<T> {
+public class MinimalFuture<T> extends CompletableFuture<T> {
 
     @FunctionalInterface
     public interface ExceptionalSupplier<U> {
