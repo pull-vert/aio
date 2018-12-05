@@ -40,7 +40,7 @@ package org.aio.tcp;
 
 import org.aio.core.BufferSupplier;
 import org.aio.core.FlowTube;
-import org.aio.core.chan.ChanTube;
+import org.aio.core.ChanTube;
 
 import java.nio.ByteBuffer;
 import java.util.List;

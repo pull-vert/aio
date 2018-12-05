@@ -53,7 +53,7 @@ import java.util.function.Supplier;
  *  direct byte buffers, and avoid another layer of copying by
  *  the SocketChannel implementation.
  *
- *  The HttpClientImpl has an implementation of this interface
+ *  The TcpServerOrClient has an implementation of this interface
  *  that allows to reuse the same 3 direct buffers for reading
  *  off SSL encrypted data from the socket.
  *  The BufferSupplier::get method is called by SocketTube

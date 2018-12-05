@@ -6,7 +6,7 @@
  * file that accompanied this code.
  */
 
-package org.aio.core.chan;
+package org.aio.core;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

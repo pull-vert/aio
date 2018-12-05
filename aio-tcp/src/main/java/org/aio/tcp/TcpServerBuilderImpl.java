@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK java.net.http.HttpClient
+ * This file is a fork of OpenJDK jdk.internal.net.http.HttpClientBuilderImpl
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -38,51 +38,51 @@
 
 package org.aio.tcp;
 
-public abstract class TcpServer extends TcpServerOrClient {
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import java.util.concurrent.Executor;
 
-    /**
-     * Creates a TcpServer.
-     */
-    protected TcpServer() { }
+import static java.util.Objects.requireNonNull;
 
-    public static Builder newBuilder() {
-        return new TcpServerBuilderImpl();
+class TcpServerBuilderImpl implements TcpServer.Builder {
+
+    int port;
+    Executor executor;
+    // Security parameters
+    SSLContext sslContext;
+    SSLParameters sslParams;
+
+    @Override
+    public TcpServerBuilderImpl port(int port) {
+        this.port = port;
+        return this;
     }
 
-    /**
-     * A builder of {@link TcpServer}.
-     *
-     * <p> Builders are created by invoking {@link TcpServer#newBuilder()}.
-     * Each of the setter methods modifies the state of the builder
-     * and returns the same instance. Builders are not thread-safe and should not be
-     * used concurrently from multiple threads without external synchronization.
-     */
-    public static interface Builder extends TcpServerOrClient.Builder {
-
-        /**
-         * Sets the TCP port for TcpServer
-         *
-         * @param port TCP port
-         * @return this builder
-         */
-        public Builder port(int port);
-
-        /**
-         * Returns a new {@link TcpServer} built from the current state of this
-         * builder.
-         *
-         * @return a new TcpServerImpl
-         */
-        public TcpServer build();
+    @Override
+    public TcpServerBuilderImpl sslContext(SSLContext sslContext) {
+        requireNonNull(sslContext);
+        this.sslContext = sslContext;
+        return this;
     }
 
-    /**
-     * Returns this server's port.
-     *
-     * <p> If no port was set in this server's builder, then the
-     * {@linkplain TcpServerImpl#DEFAULT_PORT default port} is returned.
-     *
-     * @return this server's TCP port
-     */
-    abstract public int getPort();
+
+    @Override
+    public TcpServerBuilderImpl sslParameters(SSLParameters sslParameters) {
+        requireNonNull(sslParameters);
+        this.sslParams = TcpUtils.copySSLParameters(sslParameters);
+        return this;
+    }
+
+
+    @Override
+    public TcpServerBuilderImpl executor(Executor s) {
+        requireNonNull(s);
+        this.executor = s;
+        return this;
+    }
+
+    @Override
+    public TcpServer build() {
+        return TcpServerImpl.create(this);
+    }
 }

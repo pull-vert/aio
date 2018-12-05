@@ -8,7 +8,7 @@
 
 package org.aio.tcp;
 
-import org.aio.core.chan.Chan;
+import org.aio.core.Chan;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

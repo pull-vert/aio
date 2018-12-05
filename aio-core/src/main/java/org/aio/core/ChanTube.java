@@ -36,9 +36,8 @@
  * questions.
  */
 
-package org.aio.core.chan;
+package org.aio.core;
 
-import org.aio.core.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

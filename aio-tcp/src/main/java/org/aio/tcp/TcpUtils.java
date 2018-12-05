@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK java.net.http.HttpClient
+ * This file is a fork of OpenJDK jdk.internal.net.http.common.Utils
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -38,51 +38,32 @@
 
 package org.aio.tcp;
 
-public abstract class TcpServer extends TcpServerOrClient {
+import javax.net.ssl.SSLParameters;
 
-    /**
-     * Creates a TcpServer.
-     */
-    protected TcpServer() { }
+/**
+ * Miscellaneous utilities for TCP
+ */
+public final class TcpUtils {
+    private TcpUtils() { }
 
-    public static Builder newBuilder() {
-        return new TcpServerBuilderImpl();
+    public static SSLParameters copySSLParameters(SSLParameters p) {
+        SSLParameters p1 = new SSLParameters();
+        p1.setAlgorithmConstraints(p.getAlgorithmConstraints());
+        p1.setCipherSuites(p.getCipherSuites());
+        // JDK 8 EXCL START
+        p1.setEnableRetransmissions(p.getEnableRetransmissions());
+        p1.setMaximumPacketSize(p.getMaximumPacketSize());
+        // JDK 8 EXCL END
+        p1.setEndpointIdentificationAlgorithm(p.getEndpointIdentificationAlgorithm());
+        p1.setNeedClientAuth(p.getNeedClientAuth());
+        String[] protocols = p.getProtocols();
+        if (protocols != null) {
+            p1.setProtocols(protocols.clone());
+        }
+        p1.setSNIMatchers(p.getSNIMatchers());
+        p1.setServerNames(p.getServerNames());
+        p1.setUseCipherSuitesOrder(p.getUseCipherSuitesOrder());
+        p1.setWantClientAuth(p.getWantClientAuth());
+        return p1;
     }
-
-    /**
-     * A builder of {@link TcpServer}.
-     *
-     * <p> Builders are created by invoking {@link TcpServer#newBuilder()}.
-     * Each of the setter methods modifies the state of the builder
-     * and returns the same instance. Builders are not thread-safe and should not be
-     * used concurrently from multiple threads without external synchronization.
-     */
-    public static interface Builder extends TcpServerOrClient.Builder {
-
-        /**
-         * Sets the TCP port for TcpServer
-         *
-         * @param port TCP port
-         * @return this builder
-         */
-        public Builder port(int port);
-
-        /**
-         * Returns a new {@link TcpServer} built from the current state of this
-         * builder.
-         *
-         * @return a new TcpServerImpl
-         */
-        public TcpServer build();
-    }
-
-    /**
-     * Returns this server's port.
-     *
-     * <p> If no port was set in this server's builder, then the
-     * {@linkplain TcpServerImpl#DEFAULT_PORT default port} is returned.
-     *
-     * @return this server's TCP port
-     */
-    abstract public int getPort();
 }

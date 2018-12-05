@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.HttpClientImpl
+ * This file is a fork of OpenJDK jdk.internal.net.http.HttpClientFacade
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,63 +36,80 @@
  * questions.
  */
 
-package org.aio.core.chan;
+package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
+import org.aio.core.BufferSupplier;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import java.nio.channels.ClosedChannelException;
+import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.function.BooleanSupplier;
 
-public interface ServerOrClient {
+/**
+ * A TcpServerFacade is a simple class that wraps an TcpServer implementation
+ * and delegates everything to its implementation delegate.
+ */
+final class TcpServerFacade extends TcpServer {
 
-    /**
-     * Wait for activity on given exchange.
-     * The following occurs in the SelectorManager thread.
-     *
-     *  1) add to selector
-     *  2) If selector fires for this exchange then
-     *     call AsyncEvent.handle()
-     *
-     * If exchange needs to change interest ops, then call registerEvent() again.
-     */
-    public void registerEvent(AsyncEvent exchange);
+    final TcpServerImpl impl;
 
     /**
-     * Allows an AsyncEvent to modify its interestOps.
-     * @param event The modified event.
+     * Creates a TcpServerFacade.
      */
-    public void eventUpdated(AsyncEvent event) throws ClosedChannelException;
+    TcpServerFacade(TcpServerImpl impl) {
+        this.impl = impl;
+    }
 
-    public boolean isSelectorThread();
+    @Override
+    public int getPort() {
+        return impl.getPort();
+    }
 
-    public DelegatingExecutor theExecutor();
+    @Override
+    public  Optional<SSLContext> getSslContext() {
+        return impl.getSslContext();
+    }
 
-    /**
-     * A DelegatingExecutor is an executor that delegates tasks to
-     * a wrapped executor when it detects that the current thread
-     * is the SelectorManager thread. If the current thread is not
-     * the selector manager thread the given task is executed inline.
-     */
-    public final static class DelegatingExecutor implements Executor {
-        private final BooleanSupplier isInSelectorThread;
-        private final Executor delegate;
-        DelegatingExecutor(BooleanSupplier isInSelectorThread, Executor delegate) {
-            this.isInSelectorThread = isInSelectorThread;
-            this.delegate = delegate;
-        }
+    @Override
+    public Optional<SSLParameters> getSslParameters() {
+        return impl.getSslParameters();
+    }
 
-        Executor delegate() {
-            return delegate;
-        }
+   @Override
+    public Optional<Executor> getExecutor() {
+        return impl.getExecutor();
+    }
 
-        @Override
-        public void execute(Runnable command) {
-            if (isInSelectorThread.getAsBoolean()) {
-                delegate.execute(command);
-            } else {
-                command.run();
-            }
-        }
+    @Override
+    protected BufferSupplier getSSLBufferSupplier() {
+        return impl.getSSLBufferSupplier();
+    }
+
+    @Override
+    protected void registerEvent(AsyncEvent exchange) {
+        impl.registerEvent(exchange);
+    }
+
+    @Override
+    protected void eventUpdated(AsyncEvent event) throws ClosedChannelException {
+        impl.eventUpdated(event);
+    }
+
+    @Override
+    protected boolean isSelectorThread() {
+        return impl.isSelectorThread();
+    }
+
+    @Override
+    protected DelegatingExecutor theExecutor() {
+        return impl.theExecutor();
+    }
+
+    @Override
+    public String toString() {
+        // Used by tests to get the server's id.
+        return impl.toString();
     }
 }
