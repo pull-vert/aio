@@ -39,7 +39,6 @@
 package org.aio.core.chan;
 
 import org.aio.core.AsyncEvent;
-import org.aio.core.BufferSupplier;
 
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Executor;
@@ -75,7 +74,7 @@ public interface ServerOrClient {
      * is the SelectorManager thread. If the current thread is not
      * the selector manager thread the given task is executed inline.
      */
-    final static class DelegatingExecutor implements Executor {
+    public final static class DelegatingExecutor implements Executor {
         private final BooleanSupplier isInSelectorThread;
         private final Executor delegate;
         DelegatingExecutor(BooleanSupplier isInSelectorThread, Executor delegate) {
