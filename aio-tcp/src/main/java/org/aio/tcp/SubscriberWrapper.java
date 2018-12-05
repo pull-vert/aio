@@ -51,8 +51,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.aio.core.CoreUtils;
 import org.aio.core.FlowTube;
-import org.aio.core.MinimalFuture;
-import org.aio.core.SequentialScheduler;
+import org.aio.core.util.concurrent.MinimalFuture;
+import org.aio.core.util.concurrent.SequentialScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

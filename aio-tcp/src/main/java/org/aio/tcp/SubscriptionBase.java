@@ -39,7 +39,7 @@
 package org.aio.tcp;
 
 import org.aio.core.Demand;
-import org.aio.core.SequentialScheduler;
+import org.aio.core.util.concurrent.SequentialScheduler;
 
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
