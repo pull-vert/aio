@@ -26,13 +26,11 @@ public abstract class Chan /*extends ChanEvtsEmitterOut<ByteBuffer[]>*/ {
      * @throws  java.nio.channels.NotYetConnectedException
      *          If this channel is not yet connected
      */
-    // todo : use UncheckedIOException instead and throws nothing
     abstract protected int read(ByteBuffer buf) throws IOException;
 
     /**
      * @throws  java.nio.channels.NotYetConnectedException
      *          If this channel is not yet connected
      */
-    // todo : use UncheckedIOException instead and throws nothing
     abstract protected long write(ByteBuffer[] srcs) throws IOException;
 }
