@@ -55,6 +55,5 @@ public interface TcpServerOrClient extends ServerOrClient {
     // all happen in the SelectorManager thread,
     // then this BufferSupplier can be shared between all
     // the SSL connections managed by this client.
-    // todo TCP specific
     public BufferSupplier getSSLBufferSupplier();
 }
