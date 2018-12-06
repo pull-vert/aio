@@ -147,7 +147,7 @@ public class SocketChanTube extends ChanTube {
         return dbgString();
     }
 
-    final String dbgString() {
+    private String dbgString() {
         return "SocketChanTube("+id+")";
     }
 }

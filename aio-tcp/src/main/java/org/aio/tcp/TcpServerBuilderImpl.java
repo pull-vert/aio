@@ -46,7 +46,7 @@ import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
 
-class TcpServerBuilderImpl implements TcpServer.Builder {
+final class TcpServerBuilderImpl implements TcpServer.Builder {
 
     int port;
     Executor executor;

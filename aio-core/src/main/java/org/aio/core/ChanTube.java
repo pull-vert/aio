@@ -975,7 +975,7 @@ public abstract class ChanTube implements FlowTube {
          *
          * @return A buffer to read data from the channel.
          */
-        ByteBuffer getBuffer();
+        public ByteBuffer getBuffer();
 
         /**
          * Appends the read-data in {@code buffer} to the list of buffer to
@@ -998,7 +998,7 @@ public abstract class ChanTube implements FlowTube {
          * @return A possibly new list where a buffer containing the
          *         data read from the channel has been added.
          */
-        List<ByteBuffer> append(List<ByteBuffer> list, ByteBuffer buffer, int start);
+        public List<ByteBuffer> append(List<ByteBuffer> list, ByteBuffer buffer, int start);
 
         /**
          * Returns the given unused {@code buffer}, previously obtained from
@@ -1009,7 +1009,7 @@ public abstract class ChanTube implements FlowTube {
          *
          * @param buffer The unused buffer.
          */
-        default void returnUnused(ByteBuffer buffer) { }
+        public default void returnUnused(ByteBuffer buffer) { }
     }
 
     // An implementation of BufferSource used for unencrypted data.
@@ -1209,11 +1209,11 @@ public abstract class ChanTube implements FlowTube {
         return dbgString();
     }
 
-    final String dbgString() {
+    private String dbgString() {
         return "ChanTube("+id+")";
     }
 
-    final String channelDescr() {
+    protected final String channelDescr() {
         return String.valueOf(chan);
     }
 }
