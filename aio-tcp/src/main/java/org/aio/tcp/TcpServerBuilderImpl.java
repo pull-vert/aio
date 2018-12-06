@@ -56,6 +56,7 @@ final class TcpServerBuilderImpl implements TcpServer.Builder {
 
     @Override
     public TcpServerBuilderImpl port(int port) {
+        assert port > 0 : "Port must be greater than 0";
         this.port = port;
         return this;
     }

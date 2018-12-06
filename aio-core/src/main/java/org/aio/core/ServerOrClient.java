@@ -80,7 +80,7 @@ public abstract class ServerOrClient {
             this.delegate = delegate;
         }
 
-        Executor delegate() {
+        public Executor delegate() {
             return delegate;
         }
 
