@@ -51,7 +51,7 @@ import java.util.concurrent.Executor;
  * A TcpServerFacade is a simple class that wraps an TcpServer implementation
  * and delegates everything to its implementation delegate.
  */
-final class TcpServerFacade extends TcpServer {
+final class TcpServerFacade extends TcpServerOrClient implements TcpServer {
 
     final TcpServerImpl impl;
 

@@ -61,10 +61,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * and delivered when they occur.</p>
  * @see AsyncEvent
  */
-public final class TcpServerImpl extends TcpServer {
+public final class TcpServerImpl extends TcpServerOrClient implements TcpServer {
 
     public static final int DEFAULT_PORT = 35700;
-    static final AtomicLong TCP_SERVER_IDS = new AtomicLong();
+    protected static final AtomicLong TCP_SERVER_IDS = new AtomicLong();
 
     // Define the default factory as a static inner class
     // that embeds all the necessary logic to avoid

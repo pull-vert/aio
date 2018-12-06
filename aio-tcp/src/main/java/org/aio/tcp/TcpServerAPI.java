@@ -38,19 +38,30 @@
 
 package org.aio.tcp;
 
-public interface TcpServer extends TcpServerAPI {
+public interface TcpServerAPI extends TcpServerOrClientAPI {
 
-    public static Builder newBuilder() {
-        return new TcpServerBuilderImpl();
+    /**
+     * A builder of {@link TcpServerAPI}.
+     *
+     */
+    public static interface Builder<T extends TcpServerAPI> extends TcpServerOrClientAPI.Builder<T> {
+
+        /**
+         * Sets the TCP port for TcpServer
+         *
+         * @param port TCP port
+         * @return this builder
+         */
+        public Builder port(int port);
     }
 
     /**
-     * A builder of {@link TcpServer}.
+     * Returns this server's port.
      *
-     * <p> Builders are created by invoking {@link TcpServer#newBuilder()}.
-     * Each of the setter methods modifies the state of the builder
-     * and returns the same instance. Builders are not thread-safe and should not be
-     * used concurrently from multiple threads without external synchronization.
+     * <p> If no port was set in this server's builder, then the
+     * {@linkplain TcpServerImpl#DEFAULT_PORT default port} is returned.
+     *
+     * @return this server's TCP port
      */
-    public static interface Builder extends TcpServerAPI.Builder<TcpServer> { }
+    abstract public int getPort();
 }
