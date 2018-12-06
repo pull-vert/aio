@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.common.Utils
+ * This file is a fork of OpenJDK jdk.internal.net.http.common.Pair
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,34 +36,30 @@
  * questions.
  */
 
-package org.aio.tcp;
-
-import javax.net.ssl.SSLParameters;
+package org.aio.core.common;
 
 /**
- * Miscellaneous utilities for TCP
+ * A simple paired value class
  */
-public final class TcpUtils {
-    private TcpUtils() { }
+public final class Pair<T, U> {
 
-    public static SSLParameters copySSLParameters(SSLParameters p) {
-        SSLParameters p1 = new SSLParameters();
-        p1.setAlgorithmConstraints(p.getAlgorithmConstraints());
-        p1.setCipherSuites(p.getCipherSuites());
-        // JDK 8 EXCL START
-        p1.setEnableRetransmissions(p.getEnableRetransmissions());
-        p1.setMaximumPacketSize(p.getMaximumPacketSize());
-        // JDK 8 EXCL END
-        p1.setEndpointIdentificationAlgorithm(p.getEndpointIdentificationAlgorithm());
-        p1.setNeedClientAuth(p.getNeedClientAuth());
-        String[] protocols = p.getProtocols();
-        if (protocols != null) {
-            p1.setProtocols(protocols.clone());
-        }
-        p1.setSNIMatchers(p.getSNIMatchers());
-        p1.setServerNames(p.getServerNames());
-        p1.setUseCipherSuitesOrder(p.getUseCipherSuitesOrder());
-        p1.setWantClientAuth(p.getWantClientAuth());
-        return p1;
+    public Pair(T first, U second) {
+        this.second = second;
+        this.first = first;
+    }
+
+    public final T first;
+    public final U second;
+
+    // Because 'pair()' is shorter than 'new Pair<>()'.
+    // Sometimes this difference might be very significant (especially in a
+    // 80-ish characters boundary). Sorry diamond operator.
+    public static <T, U> Pair<T, U> pair(T first, U second) {
+        return new Pair<>(first, second);
+    }
+
+    @Override
+    public String toString() {
+        return "(" + first + ", " + second + ")";
     }
 }

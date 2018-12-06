@@ -39,7 +39,7 @@
 package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
-import org.aio.core.BufferSupplier;
+import org.aio.core.common.BufferSupplier;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;

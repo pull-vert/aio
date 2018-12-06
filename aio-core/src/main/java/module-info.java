@@ -10,4 +10,5 @@ module aio.core {
     requires org.slf4j;
     exports org.aio.core;
     exports org.aio.core.util.concurrent;
+    exports org.aio.core.common;
 }

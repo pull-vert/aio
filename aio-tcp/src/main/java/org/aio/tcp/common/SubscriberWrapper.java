@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.tcp;
+package org.aio.tcp.common;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
@@ -49,7 +49,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.aio.core.CoreUtils;
+import org.aio.core.common.CoreUtils;
 import org.aio.core.FlowTube;
 import org.aio.core.util.concurrent.MinimalFuture;
 import org.aio.core.util.concurrent.SequentialScheduler;

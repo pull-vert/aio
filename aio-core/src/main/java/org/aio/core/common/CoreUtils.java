@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core;
+package org.aio.core.common;
 
 import org.slf4j.Logger;
 
