@@ -46,7 +46,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,10 +57,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * A ChanTube implementation is a terminal tube plugged directly into the {@linkplain
- * java.nio.channels.SocketChannel TCP Socket Channel} or {@linkplain
- * java.nio.channels.DatagramChannel UDP Datagram Channel}, ChanTube through {@link
- * Chan} abstraction
+ * A ChanTube implementation is a terminal tube plugged directly into the {@link Chan}
  * <br>
  * The read subscriber should call {@code subscribe} on the ChanTube before
  * the ChanTube is subscribed to the write publisher.
@@ -91,8 +87,8 @@ public abstract class ChanTube implements FlowTube {
      * Returns {@code true} if this flow is finished.
      * This happens when this flow internal read subscription is completed,
      * either normally (EOF reading) or exceptionally  (EOF writing, or
-     * underlying channel closed, or some exception occurred while reading or
-     * writing to the channel).
+     * underlying getChan closed, or some exception occurred while reading or
+     * writing to the getChan).
      *
      * @return {@code true} if this flow is finished.
      */
@@ -208,9 +204,9 @@ public abstract class ChanTube implements FlowTube {
             InternalWriteSubscriber.WriteEvent writeEvent =
                     writeSubscriber.writeEvent;
             Demand wdemand = writeSubscriber.writeDemand;
-            int rops = readEvent == null ? 0 : readEvent.interestOps();
+            int rops = readEvent == null ? 0 : readEvent.getInterestOps();
             long rd = rdemand == null ? 0 : rdemand.get();
-            int wops = writeEvent == null ? 0 : writeEvent.interestOps();
+            int wops = writeEvent == null ? 0 : writeEvent.getInterestOps();
             long wd = wdemand == null ? 0 : wdemand.get();
 
             state.append(when).append(" Reading: [ops=")
@@ -226,7 +222,7 @@ public abstract class ChanTube implements FlowTube {
 
     /**
      * A repeatable event that can be paused or resumed by changing its
-     * interestOps. When the event is fired, it is first paused before being
+     * getInterestOps. When the event is fired, it is first paused before being
      * signaled. It is the responsibility of the code triggered by
      * {@code signalEvent} to resume the event if required.
      */
@@ -234,14 +230,14 @@ public abstract class ChanTube implements FlowTube {
 
         final Logger logger = LoggerFactory.getLogger(SelectableChannelFlowEvent.class);
 
-        final Chan channel;
+        final Chan chan;
         final int defaultInterest;
         volatile int interestOps;
         volatile boolean registered;
-        SelectableChannelFlowEvent(int defaultInterest, Chan channel) {
+        SelectableChannelFlowEvent(int defaultInterest, Chan chan) {
             super(AsyncEvent.REPEATING);
             this.defaultInterest = defaultInterest;
-            this.channel = channel;
+            this.chan = chan;
         }
         final boolean registered() {return registered;}
         final void resume() {
@@ -250,9 +246,9 @@ public abstract class ChanTube implements FlowTube {
         }
         final void pause() {interestOps = 0;}
         @Override
-        public final SelectableChannel channel() {return channel.getChannel();}
+        public final Chan getChan() {return chan;}
         @Override
-        public final int interestOps() {return interestOps;}
+        public final int getInterestOps() {return interestOps;}
 
         @Override
         public final void handle() {
@@ -862,7 +858,7 @@ public abstract class ChanTube implements FlowTube {
                                     if (logger.isDebugEnabled()) logger.debug("no more bytes available");
                                     // re-increment the demand and resume the read
                                     // event. This ensures that this loop is
-                                    // executed again when the channel becomes
+                                    // executed again when the getChan becomes
                                     // readable again.
                                     demand.increase(1);
                                     resumeReadEvent();
@@ -879,7 +875,7 @@ public abstract class ChanTube implements FlowTube {
                             // still be paused here, unless the demand was just
                             // incremented from 0 to n, in which case, the
                             // event will be resumed, causing this loop to be
-                            // invoked again when the channel becomes readable:
+                            // invoked again when the getChan becomes readable:
                             // This is what we want.
                             // Trying to pause the event here would actually
                             // introduce a race condition between this loop and
@@ -961,7 +957,7 @@ public abstract class ChanTube implements FlowTube {
     // This interface is used by readAvailable(BufferSource);
     public interface BufferSource {
         /**
-         * Returns a buffer to read data from the channel.
+         * Returns a buffer to read data from the getChan.
          *
          * @implNote
          * Different implementation can have different strategies, as to
@@ -973,7 +969,7 @@ public abstract class ChanTube implements FlowTube {
          *   d. the buffer is 'free' - that is - it is not used
          *      or retained by anybody else
          *
-         * @return A buffer to read data from the channel.
+         * @return A buffer to read data from the getChan.
          */
         public ByteBuffer getBuffer();
 
@@ -996,7 +992,7 @@ public abstract class ChanTube implements FlowTube {
          * @param start   The start position at which data were read.
          *                The current buffer position indicates the end.
          * @return A possibly new list where a buffer containing the
-         *         data read from the channel has been added.
+         *         data read from the getChan has been added.
          */
         public List<ByteBuffer> append(List<ByteBuffer> list, ByteBuffer buffer, int start);
 

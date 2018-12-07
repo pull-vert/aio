@@ -57,7 +57,7 @@ public abstract class ServerOrClient {
     protected abstract void registerEvent(AsyncEvent exchange);
 
     /**
-     * Allows an AsyncEvent to modify its interestOps.
+     * Allows an AsyncEvent to modify its getInterestOps.
      * @param event The modified event.
      */
     protected abstract void eventUpdated(AsyncEvent event) throws ClosedChannelException;

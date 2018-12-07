@@ -50,10 +50,7 @@ import javax.net.ssl.SSLParameters;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.ref.WeakReference;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectableChannel;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
+import java.nio.channels.*;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -146,7 +143,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     //    from the map. This should also take care of push promises.
     // 2. For WebSocket the count is increased when creating a
     //    DetachedConnectionChannel for the socket, and decreased
-    //    when the the channel is closed.
+    //    when the the getChan is closed.
     //    In addition, the HttpClient facade is passed to the WebSocket builder,
     //    (instead of the client implementation delegate).
     // 3. For HTTP/1.1 the count is incremented before starting to parse the body
@@ -343,18 +340,18 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
         void eventUpdated(AsyncEvent e) throws ClosedChannelException {
             if (Thread.currentThread() == this) {
-                SelectionKey key = e.channel().keyFor(selector);
+                SelectionKey key = ((SocketChan) e.getChan()).getDelegatedChannel().keyFor(selector);
                 if (key != null && key.isValid()) {
                     SelectorAttachment sa = (SelectorAttachment) key.attachment();
                     sa.register(e);
-                } else if (e.interestOps() != 0){
+                } else if (e.getInterestOps() != 0){
                     // We don't care about paused events.
                     // These are actually handled by
                     // SelectorAttachment::resetInterestOps later on.
                     // But if we reach here when trying to resume an
                     // event then it's better to fail fast.
-                    if (logger.isDebugEnabled()) logger.debug("No key for channel");
-                    e.abort(new IOException("No key for channel"));
+                    if (logger.isDebugEnabled()) logger.debug("No key for getChan");
+                    e.abort(new IOException("No key for getChan"));
                 }
             } else {
                 register(e);
@@ -399,7 +396,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         }
 
         void register(AsyncEvent e) throws ClosedChannelException {
-            int newOps = e.interestOps();
+            int newOps = e.getInterestOps();
             // re register interest if we are not already interested
             // in the event. If the event is paused, then the pause will
             // be taken into account later when resetInterestOps is called.

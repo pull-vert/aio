@@ -59,14 +59,14 @@ public final class AsyncTriggerEvent extends AsyncEvent{
     }
     /** Returns null */
     @Override
-    public SelectableChannel channel() { return null; }
+    public Chan getChan() { return null; }
     /** Returns 0 */
     @Override
-    public int interestOps() { return 0; }
+    public int getInterestOps() { return 0; }
     @Override
     public void handle() { trigger.run(); }
     @Override
     public void abort(IOException ioe) { errorHandler.accept(ioe); }
     @Override
-    public boolean repeating() { return false; }
+    public boolean getRepeating() { return false; }
 }

@@ -12,15 +12,18 @@ import org.aio.core.Chan;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SocketChannel;
 
 public final class SocketChan extends Chan {
 
     private SocketChannel socketChannel;
 
+    public SocketChan(SocketChannel socketChannel) {
+        this.socketChannel = socketChannel;
+    }
+
     @Override
-    protected SelectableChannel getChannel() {
+    protected SocketChannel getDelegatedChannel() {
         return socketChannel;
     }
 

@@ -10,27 +10,33 @@ package org.aio.core;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectableChannel;
 
 /**
- * Interface abstraction over {@linkplain java.nio.channels.SelectableChannel
- * NIO Selectable Channel}
+ * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel
+ * NIO Selectable Channel} or whatever other IO Channel
  */
-public abstract class Chan /*extends ChanEvtsEmitterOut<ByteBuffer[]>*/ {
-    /**
-     * @return The delegated {@link SelectableChannel}
-     */
-    abstract protected SelectableChannel getChannel();
+public abstract class Chan {
 
     /**
-     * @throws  java.nio.channels.NotYetConnectedException
-     *          If this channel is not yet connected
+     * @return The delegated Channel
+     */
+    abstract protected Object getDelegatedChannel();
+
+    /**
+     * Read some bytes from the Channel and write them in the provided buf ByteBuffer
+     *
+     * @param buf the ByteBuffer
+     * @return number of read bytes
+     * @throws IOException a IO Exception that may occur during read operation
      */
     abstract protected int read(ByteBuffer buf) throws IOException;
 
     /**
-     * @throws  java.nio.channels.NotYetConnectedException
-     *          If this channel is not yet connected
+     * Write bytes from provided srcs ByteBuffer array to the Channel
+     *
+     * @param srcs ByteBuffer array containing values to write
+     * @return number of written bytes
+     * @throws IOException a IO Exception that may occur during write operation
      */
     abstract protected long write(ByteBuffer[] srcs) throws IOException;
 }

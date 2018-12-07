@@ -60,11 +60,11 @@ public abstract class AsyncEvent {
         this.flags = flags;
     }
 
-    /** Returns the channel */
-    public abstract SelectableChannel channel();
+    /** Returns the getChan */
+    public abstract Chan getChan();
 
     /** Returns the selector interest op flags OR'd */
-    public abstract int interestOps();
+    public abstract int getInterestOps();
 
     /** Called when event occurs */
     public abstract void handle();
@@ -77,7 +77,7 @@ public abstract class AsyncEvent {
      */
     public abstract void abort(IOException ioe);
 
-    public boolean repeating() {
+    public boolean getRepeating() {
         return (flags & REPEATING) != 0;
     }
 }
