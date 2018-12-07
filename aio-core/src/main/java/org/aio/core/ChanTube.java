@@ -67,7 +67,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     private final Logger logger = LoggerFactory.getLogger(ChanTube.class);
     static final AtomicLong IDS = new AtomicLong();
 
-    private final ServerOrClient serverOrClient;
+    private final ServerOrClient<T> serverOrClient;
     private final T chan;
     private final Object lock = new Object();
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -75,7 +75,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     private final InternalWriteSubscriber writeSubscriber;
     protected final long id = IDS.incrementAndGet();
 
-    public ChanTube(ServerOrClient serverOrClient, T chan) {
+    public ChanTube(ServerOrClient<T> serverOrClient, T chan) {
         this.serverOrClient = serverOrClient;
         this.chan = chan;
 
@@ -287,6 +287,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
         final WriteEvent writeEvent = new WriteEvent(chan, this);
         final Demand writeDemand = new Demand();
 
+        @SuppressWarnings("unchecked")
         @Override
         public void onSubscribe(Flow.Subscription subscription) {
             WriteSubscription previous = this.subscription;
@@ -439,7 +440,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
 
         // A repeatable WriteEvent which is paused after firing and can
         // be resumed if required - see SelectableChannelFlowEvent;
-        final class WriteEvent extends SelectableChannelFlowEvent {
+        final class WriteEvent extends SelectableChannelFlowEvent<T> {
             final ChanTube.InternalWriteSubscriber sub;
             WriteEvent(T chan, ChanTube.InternalWriteSubscriber sub) {
                 super(SelectionKey.OP_WRITE, chan);
@@ -657,7 +658,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
             final SequentialScheduler readScheduler;
             private volatile boolean completed;
             private final ReadEvent readEvent;
-            private final AsyncEvent subscribeEvent;
+            private final AsyncTriggerEvent subscribeEvent;
 
             InternalReadSubscription() {
                 readScheduler = new SequentialScheduler(new SelectableChannelFlowTask(this::read));
@@ -666,6 +667,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
                 readEvent = new ReadEvent(chan, this);
             }
 
+            @SuppressWarnings("unchecked")
             /*
              * This method must be invoked before any other method of this class.
              */
@@ -927,7 +929,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
 
         // A repeatable ReadEvent which is paused after firing and can
         // be resumed if required - see SelectableChannelFlowEvent;
-        final class ReadEvent extends SelectableChannelFlowEvent {
+        final class ReadEvent extends SelectableChannelFlowEvent<T> {
             final InternalReadSubscription sub;
             ReadEvent(T chan, InternalReadSubscription sub) {
                 super(SelectionKey.OP_READ, chan);
