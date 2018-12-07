@@ -41,7 +41,7 @@ package org.aio.tcp;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.ServerOrClient;
 
-public abstract class TcpServerOrClient extends ServerOrClient {
+public abstract class TcpServerOrClient extends ServerOrClient<SocketChan> implements TcpServerOrClientAPI {
 
     // Optimization for reading SSL encrypted data
     // --------------------------------------------

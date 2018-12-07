@@ -39,14 +39,13 @@
 package org.aio.core;
 
 import java.io.IOException;
-import java.nio.channels.SelectableChannel;
 
 /**
- * Event handling interface from SelectableChannel's selector.
+ * Event handling interface from {@link java.nio.channels.SelectableChannel}'s {@linkplain java.nio.channels.Selector selector}.
  *
  * If REPEATING is set then the event is not cancelled after being posted.
  */
-public abstract class AsyncEvent {
+public abstract class AsyncEvent<T extends Chan> {
 
     public static final int REPEATING = 0x2; // one off event if not set
 
@@ -60,8 +59,8 @@ public abstract class AsyncEvent {
         this.flags = flags;
     }
 
-    /** Returns the getChan */
-    public abstract Chan getChan();
+    /** Returns the Channel */
+    public abstract T getChan();
 
     /** Returns the selector interest op flags OR'd */
     public abstract int getInterestOps();

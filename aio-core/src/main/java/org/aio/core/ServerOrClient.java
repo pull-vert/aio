@@ -38,11 +38,19 @@
 
 package org.aio.core;
 
+import org.aio.core.common.CoreUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.Selector;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 
-public abstract class ServerOrClient {
+public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAPI {
 
     /**
      * Wait for activity on given exchange.
@@ -54,13 +62,13 @@ public abstract class ServerOrClient {
      *
      * If exchange needs to change interest ops, then call registerEvent() again.
      */
-    protected abstract void registerEvent(AsyncEvent exchange);
+    protected abstract void registerEvent(AsyncEvent<T> exchange);
 
     /**
      * Allows an AsyncEvent to modify its getInterestOps.
      * @param event The modified event.
      */
-    protected abstract void eventUpdated(AsyncEvent event) throws ClosedChannelException;
+    protected abstract void eventUpdated(AsyncEvent<T> event) throws ClosedChannelException;
 
     protected abstract boolean isSelectorThread();
 
@@ -90,6 +98,64 @@ public abstract class ServerOrClient {
                 delegate.execute(command);
             } else {
                 command.run();
+            }
+        }
+    }
+
+    /**
+     * Tracks multiple user level registrations associated with one NIO
+     * registration (SelectionKey). In this implementation, registrations
+     * are one-off and when an event is posted the registration is cancelled
+     * until explicitly registered again.
+     *
+     * <p> No external synchronization required as this class is only used
+     * by the SelectorManager thread. One of these objects required per
+     * connection.
+     */
+    protected static class SelectorAttachment<T extends Chan> {
+        final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
+
+        private final T chan;
+        private final Selector selector;
+        private final Set<AsyncEvent<T>> pending;
+        private int interestOps;
+
+        SelectorAttachment(T chan, Selector selector) {
+            this.pending = new HashSet<>();
+            this.chan = chan;
+            this.selector = selector;
+        }
+
+        public void register(AsyncEvent<T> e) throws ClosedChannelException {
+            int newOps = e.getInterestOps();
+            // re register interest if we are not already interested
+            // in the event. If the event is paused, then the pause will
+            // be taken into account later when resetInterestOps is called.
+            boolean reRegister = (interestOps & newOps) != newOps;
+            interestOps |= newOps;
+            pending.add(e);
+            if (logger.isDebugEnabled())
+                logger.debug("Registering {} for {} ({})", e, newOps, reRegister);
+            if (reRegister) {
+                // first time registration happens here also
+                try {
+                    chan.getChannel().register(selector, interestOps, this);
+                } catch (Throwable x) {
+                    abortPending(x);
+                }
+            } else if (!chan.getChannel().isOpen()) {
+                abortPending(new ClosedChannelException());
+            }
+        }
+
+        void abortPending(Throwable x) {
+            if (!pending.isEmpty()) {
+                AsyncEvent[] evts = pending.toArray(new AsyncEvent[0]);
+                pending.clear();
+                IOException io = CoreUtils.getIOException(x);
+                for (AsyncEvent event : evts) {
+                    event.abort(io);
+                }
             }
         }
     }

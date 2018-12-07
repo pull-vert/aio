@@ -10,17 +10,18 @@ package org.aio.core;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectableChannel;
 
 /**
  * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel
- * NIO Selectable Channel} or whatever other IO Channel
+ * NIO Selectable Channel}
  */
-public abstract class Chan {
+public abstract class Chan<T extends SelectableChannel> {
 
     /**
      * @return The delegated Channel
      */
-    abstract protected Object getDelegatedChannel();
+    abstract protected T getChannel();
 
     /**
      * Read some bytes from the Channel and write them in the provided buf ByteBuffer

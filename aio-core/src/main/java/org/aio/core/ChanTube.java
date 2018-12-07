@@ -62,20 +62,20 @@ import java.util.function.Supplier;
  * The read subscriber should call {@code subscribe} on the ChanTube before
  * the ChanTube is subscribed to the write publisher.
  */
-public abstract class ChanTube implements FlowTube {
+public abstract class ChanTube<T extends Chan> implements FlowTube {
 
     private final Logger logger = LoggerFactory.getLogger(ChanTube.class);
     static final AtomicLong IDS = new AtomicLong();
 
     private final ServerOrClient serverOrClient;
-    private final Chan chan;
+    private final T chan;
     private final Object lock = new Object();
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     private final InternalReadPublisher readPublisher;
     private final InternalWriteSubscriber writeSubscriber;
     protected final long id = IDS.incrementAndGet();
 
-    public ChanTube(ServerOrClient serverOrClient, Chan chan) {
+    public ChanTube(ServerOrClient serverOrClient, T chan) {
         this.serverOrClient = serverOrClient;
         this.chan = chan;
 
@@ -226,15 +226,15 @@ public abstract class ChanTube implements FlowTube {
      * signaled. It is the responsibility of the code triggered by
      * {@code signalEvent} to resume the event if required.
      */
-    private static abstract class SelectableChannelFlowEvent extends AsyncEvent {
+    private static abstract class SelectableChannelFlowEvent<T extends Chan> extends AsyncEvent<T> {
 
         final Logger logger = LoggerFactory.getLogger(SelectableChannelFlowEvent.class);
 
-        final Chan chan;
+        final T chan;
         final int defaultInterest;
         volatile int interestOps;
         volatile boolean registered;
-        SelectableChannelFlowEvent(int defaultInterest, Chan chan) {
+        SelectableChannelFlowEvent(int defaultInterest, T chan) {
             super(AsyncEvent.REPEATING);
             this.defaultInterest = defaultInterest;
             this.chan = chan;
@@ -246,7 +246,7 @@ public abstract class ChanTube implements FlowTube {
         }
         final void pause() {interestOps = 0;}
         @Override
-        public final Chan getChan() {return chan;}
+        public final T getChan() {return chan;}
         @Override
         public final int getInterestOps() {return interestOps;}
 
@@ -441,8 +441,8 @@ public abstract class ChanTube implements FlowTube {
         // be resumed if required - see SelectableChannelFlowEvent;
         final class WriteEvent extends SelectableChannelFlowEvent {
             final ChanTube.InternalWriteSubscriber sub;
-            WriteEvent(Chan channel, ChanTube.InternalWriteSubscriber sub) {
-                super(SelectionKey.OP_WRITE, channel);
+            WriteEvent(T chan, ChanTube.InternalWriteSubscriber sub) {
+                super(SelectionKey.OP_WRITE, chan);
                 this.sub = sub;
             }
             @Override
@@ -929,8 +929,8 @@ public abstract class ChanTube implements FlowTube {
         // be resumed if required - see SelectableChannelFlowEvent;
         final class ReadEvent extends SelectableChannelFlowEvent {
             final InternalReadSubscription sub;
-            ReadEvent(Chan channel, InternalReadSubscription sub) {
-                super(SelectionKey.OP_READ, channel);
+            ReadEvent(T chan, InternalReadSubscription sub) {
+                super(SelectionKey.OP_READ, chan);
                 this.sub = sub;
             }
             @Override
@@ -957,7 +957,7 @@ public abstract class ChanTube implements FlowTube {
     // This interface is used by readAvailable(BufferSource);
     public interface BufferSource {
         /**
-         * Returns a buffer to read data from the getChan.
+         * Returns a buffer to read data from the channel.
          *
          * @implNote
          * Different implementation can have different strategies, as to
@@ -969,7 +969,7 @@ public abstract class ChanTube implements FlowTube {
          *   d. the buffer is 'free' - that is - it is not used
          *      or retained by anybody else
          *
-         * @return A buffer to read data from the getChan.
+         * @return A buffer to read data from the channel.
          */
         public ByteBuffer getBuffer();
 
@@ -992,7 +992,7 @@ public abstract class ChanTube implements FlowTube {
          * @param start   The start position at which data were read.
          *                The current buffer position indicates the end.
          * @return A possibly new list where a buffer containing the
-         *         data read from the getChan has been added.
+         *         data read from the channel has been added.
          */
         public List<ByteBuffer> append(List<ByteBuffer> list, ByteBuffer buffer, int start);
 
@@ -1161,7 +1161,7 @@ public abstract class ChanTube implements FlowTube {
         return written;
     }
 
-    private void resumeEvent(SelectableChannelFlowEvent event,
+    private void resumeEvent(SelectableChannelFlowEvent<T> event,
                              Consumer<Throwable> errorSignaler) {
         boolean registrationRequired;
         synchronized(lock) {
@@ -1179,7 +1179,7 @@ public abstract class ChanTube implements FlowTube {
         }
    }
 
-    private void pauseEvent(SelectableChannelFlowEvent event,
+    private void pauseEvent(SelectableChannelFlowEvent<T> event,
                             Consumer<Throwable> errorSignaler) {
         synchronized(lock) {
             event.pause();

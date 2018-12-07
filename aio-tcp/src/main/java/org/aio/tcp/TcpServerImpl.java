@@ -41,7 +41,6 @@ package org.aio.tcp;
 import org.aio.core.AsyncEvent;
 import org.aio.core.AsyncTriggerEvent;
 import org.aio.core.common.BufferSupplier;
-import org.aio.core.common.CoreUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,8 +49,12 @@ import javax.net.ssl.SSLParameters;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.ref.WeakReference;
-import java.nio.channels.*;
-import java.util.*;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -254,12 +257,12 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // ServerOrClient methods
 
     @Override
-    protected void registerEvent(AsyncEvent exchange) {
+    protected void registerEvent(AsyncEvent<SocketChan> exchange) {
         selmgr.register(exchange);
     }
 
     @Override
-    protected void eventUpdated(AsyncEvent event) throws ClosedChannelException {
+    protected void eventUpdated(AsyncEvent<SocketChan> event) throws ClosedChannelException {
         assert !(event instanceof AsyncTriggerEvent);
         selmgr.eventUpdated(event);
     }
@@ -324,7 +327,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
         private final Selector selector;
         private volatile boolean closed;
-        private final List<AsyncEvent> registrations;
+        private final List<AsyncEvent<SocketChan>> registrations;
         private final List<AsyncTriggerEvent> deregistrations;
         TcpServerImpl owner;
 
@@ -338,11 +341,12 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
             selector = Selector.open();
         }
 
-        void eventUpdated(AsyncEvent e) throws ClosedChannelException {
+        @SuppressWarnings("unchecked")
+        void eventUpdated(AsyncEvent<SocketChan> e) throws ClosedChannelException {
             if (Thread.currentThread() == this) {
-                SelectionKey key = ((SocketChan) e.getChan()).getDelegatedChannel().keyFor(selector);
+                SelectionKey key = e.getChan().getChannel().keyFor(selector);
                 if (key != null && key.isValid()) {
-                    SelectorAttachment sa = (SelectorAttachment) key.attachment();
+                    SelectorAttachment<SocketChan> sa = (SelectorAttachment<SocketChan>) key.attachment();
                     sa.register(e);
                 } else if (e.getInterestOps() != 0){
                     // We don't care about paused events.
@@ -360,7 +364,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
         // This returns immediately. So caller not allowed to send/receive
         // on connection.
-        synchronized void register(AsyncEvent e) {
+        synchronized void register(AsyncEvent<SocketChan> e) {
             registrations.add(e);
             selector.wakeup();
         }
@@ -369,63 +373,5 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // Return all supported params
     private static SSLParameters getDefaultParams(SSLContext ctx) {
         return ctx.getSupportedSSLParameters();
-    }
-
-    /**
-     * Tracks multiple user level registrations associated with one NIO
-     * registration (SelectionKey). In this implementation, registrations
-     * are one-off and when an event is posted the registration is cancelled
-     * until explicitly registered again.
-     *
-     * <p> No external synchronization required as this class is only used
-     * by the SelectorManager thread. One of these objects required per
-     * connection.
-     */
-    private static class SelectorAttachment {
-        final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
-
-        private final SelectableChannel chan;
-        private final Selector selector;
-        private final Set<AsyncEvent> pending;
-        private int interestOps;
-
-        SelectorAttachment(SelectableChannel chan, Selector selector) {
-            this.pending = new HashSet<>();
-            this.chan = chan;
-            this.selector = selector;
-        }
-
-        void register(AsyncEvent e) throws ClosedChannelException {
-            int newOps = e.getInterestOps();
-            // re register interest if we are not already interested
-            // in the event. If the event is paused, then the pause will
-            // be taken into account later when resetInterestOps is called.
-            boolean reRegister = (interestOps & newOps) != newOps;
-            interestOps |= newOps;
-            pending.add(e);
-            if (logger.isDebugEnabled())
-                logger.debug("Registering {} for {} ({})", e, newOps, reRegister);
-            if (reRegister) {
-                // first time registration happens here also
-                try {
-                    chan.register(selector, interestOps, this);
-                } catch (Throwable x) {
-                    abortPending(x);
-                }
-            } else if (!chan.isOpen()) {
-                abortPending(new ClosedChannelException());
-            }
-        }
-
-        void abortPending(Throwable x) {
-            if (!pending.isEmpty()) {
-                AsyncEvent[] evts = pending.toArray(new AsyncEvent[0]);
-                pending.clear();
-                IOException io = CoreUtils.getIOException(x);
-                for (AsyncEvent event : evts) {
-                    event.abort(io);
-                }
-            }
-        }
     }
 }

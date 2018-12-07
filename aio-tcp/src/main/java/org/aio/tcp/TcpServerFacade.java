@@ -53,7 +53,7 @@ import java.util.concurrent.Executor;
  */
 final class TcpServerFacade extends TcpServerOrClient implements TcpServer {
 
-    final TcpServerImpl impl;
+    private final TcpServerImpl impl;
 
     /**
      * Creates a TcpServerFacade.

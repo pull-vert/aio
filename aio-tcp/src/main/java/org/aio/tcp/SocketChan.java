@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-public final class SocketChan extends Chan {
+public final class SocketChan extends Chan<SocketChannel> {
 
     private SocketChannel socketChannel;
 
@@ -23,7 +23,7 @@ public final class SocketChan extends Chan {
     }
 
     @Override
-    protected SocketChannel getDelegatedChannel() {
+    protected SocketChannel getChannel() {
         return socketChannel;
     }
 

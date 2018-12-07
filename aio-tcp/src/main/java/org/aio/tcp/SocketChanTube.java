@@ -54,7 +54,7 @@ import java.util.function.Supplier;
  * The read subscriber should call {@code subscribe} on the SocketChanTube before
  * the SocketChanTube is subscribed to the write publisher.
  */
-public class SocketChanTube extends ChanTube {
+public class SocketChanTube extends ChanTube<SocketChan> {
 
     private final TcpServerOrClient tcpServerOrClient;
     private final SliceBufferSource sliceBuffersSource;

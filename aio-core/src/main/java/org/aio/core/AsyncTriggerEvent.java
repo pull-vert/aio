@@ -39,7 +39,6 @@
 package org.aio.core;
 
 import java.io.IOException;
-import java.nio.channels.SelectableChannel;
 import java.util.Objects;
 import java.util.function.Consumer;
 
