@@ -41,6 +41,8 @@ package org.aio.tcp;
 import org.aio.core.AsyncEvent;
 import org.aio.core.AsyncTriggerEvent;
 import org.aio.core.common.BufferSupplier;
+import org.aio.core.common.CoreUtils;
+import org.aio.core.common.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,12 +51,14 @@ import javax.net.ssl.SSLParameters;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.ref.WeakReference;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -367,6 +371,213 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         synchronized void register(AsyncEvent<SocketChan> e) {
             registrations.add(e);
             selector.wakeup();
+        }
+
+        synchronized void cancel(SocketChan e) {
+            SelectionKey key = e.getChannel().keyFor(selector);
+            if (key != null) {
+                key.cancel();
+            }
+            selector.wakeup();
+        }
+
+        void wakeupSelector() {
+            selector.wakeup();
+        }
+
+        synchronized void shutdown() {
+            if (logger.isDebugEnabled()) logger.debug("{} : SelectorManager shutting down", getName());
+            closed = true;
+            try {
+                selector.close();
+            } catch (IOException ignored) {
+            } finally {
+                owner.stop();
+            }
+        }
+
+        @Override
+        public void run() {
+            List<Pair<AsyncEvent,IOException>> errorList = new ArrayList<>();
+            List<AsyncEvent> readyList = new ArrayList<>();
+            List<Runnable> resetList = new ArrayList<>();
+            try {
+                if (logger.isDebugEnabled()) logger.debug("{} : starting", getName());
+                while (!Thread.currentThread().isInterrupted()) {
+                    synchronized (this) {
+                        assert errorList.isEmpty();
+                        assert readyList.isEmpty();
+                        assert resetList.isEmpty();
+                        for (AsyncTriggerEvent event : deregistrations) {
+                            event.handle();
+                        }
+                        deregistrations.clear();
+                        for (AsyncEvent<SocketChan> event : registrations) {
+                            if (event instanceof AsyncTriggerEvent) {
+                                readyList.add(event);
+                                continue;
+                            }
+                            SocketChan chan = event.getChan();
+                            SelectionKey key = null;
+                            try {
+                                key = chan.getChannel().keyFor(selector);
+                                SelectorAttachment sa;
+                                if (key == null || !key.isValid()) {
+                                    if (key != null) {
+                                        // key is canceled.
+                                        // invoke selectNow() to purge it
+                                        // before registering the new event.
+                                        selector.selectNow();
+                                    }
+                                    sa = new SelectorAttachment(chan, selector);
+                                } else {
+                                    sa = (SelectorAttachment) key.attachment();
+                                }
+                                // may throw IOE if channel closed: that's OK
+                                sa.register(event);
+                                if (!chan.getChannel().isOpen()) {
+                                    throw new IOException("Channel closed");
+                                }
+                            } catch (IOException e) {
+                                if (logger.isDebugEnabled())
+                                    logger.debug("Got " + e.getClass().getName()
+                                            + " while handling registration events");
+                                chan.getChannel().close();
+                                // let the event abort deal with it
+                                errorList.add(new Pair<>(event, e));
+                                if (key != null) {
+                                    key.cancel();
+                                    selector.selectNow();
+                                }
+                            }
+                        }
+                        registrations.clear();
+                        selector.selectedKeys().clear();
+                    }
+
+                    for (AsyncEvent event : readyList) {
+                        assert event instanceof AsyncTriggerEvent;
+                        event.handle();
+                    }
+                    readyList.clear();
+
+                    for (Pair<AsyncEvent,IOException> error : errorList) {
+                        // an IOException was raised and the channel closed.
+                        handleEvent(error.first, error.second);
+                    }
+                    errorList.clear();
+
+                    // Check whether client is still alive, and if not,
+                    // gracefully stop this thread
+                    if (!owner.isReferenced()) {
+                        if (logger.isTraceEnabled()) logger.trace("{}: {}",
+                                getName(),
+                                "HttpClient no longer referenced. Exiting...");
+                        return;
+                    }
+
+                    // Timeouts will have milliseconds granularity. It is important
+                    // to handle them in a timely fashion.
+                    long nextTimeout = owner.purgeTimeoutsAndReturnNextDeadline();
+                    if (debugtimeout.on())
+                        debugtimeout.log("next timeout: %d", nextTimeout);
+
+                    // Keep-alive have seconds granularity. It's not really an
+                    // issue if we keep connections linger a bit more in the keep
+                    // alive cache.
+                    long nextExpiry = pool.purgeExpiredConnectionsAndReturnNextDeadline();
+                    if (debugtimeout.on())
+                        debugtimeout.log("next expired: %d", nextExpiry);
+
+                    assert nextTimeout >= 0;
+                    assert nextExpiry >= 0;
+
+                    // Don't wait for ever as it might prevent the thread to
+                    // stop gracefully. millis will be 0 if no deadline was found.
+                    if (nextTimeout <= 0) nextTimeout = NODEADLINE;
+
+                    // Clip nextExpiry at NODEADLINE limit. The default
+                    // keep alive is 1200 seconds (half an hour) - we don't
+                    // want to wait that long.
+                    if (nextExpiry <= 0) nextExpiry = NODEADLINE;
+                    else nextExpiry = Math.min(NODEADLINE, nextExpiry);
+
+                    // takes the least of the two.
+                    long millis = Math.min(nextExpiry, nextTimeout);
+
+                    if (debugtimeout.on())
+                        debugtimeout.log("Next deadline is %d",
+                                (millis == 0 ? NODEADLINE : millis));
+                    //debugPrint(selector);
+                    int n = selector.select(millis == 0 ? NODEADLINE : millis);
+                    if (n == 0) {
+                        // Check whether client is still alive, and if not,
+                        // gracefully stop this thread
+                        if (!owner.isReferenced()) {
+                            Log.logTrace("{0}: {1}",
+                                    getName(),
+                                    "HttpClient no longer referenced. Exiting...");
+                            return;
+                        }
+                        owner.purgeTimeoutsAndReturnNextDeadline();
+                        continue;
+                    }
+
+                    Set<SelectionKey> keys = selector.selectedKeys();
+                    assert errorList.isEmpty();
+
+                    for (SelectionKey key : keys) {
+                        SelectorAttachment<SocketChan> sa = (SelectorAttachment<SocketChan>) key.attachment();
+                        if (!key.isValid()) {
+                            IOException ex = sa.getChan().getChannel().isOpen()
+                                    ? new IOException("Invalid key")
+                                    : new ClosedChannelException();
+                            sa.getPending().forEach(e -> errorList.add(new Pair<>(e,ex)));
+                            sa.getPending().clear();
+                            continue;
+                        }
+
+                        int eventsOccurred;
+                        try {
+                            eventsOccurred = key.readyOps();
+                        } catch (CancelledKeyException ex) {
+                            IOException io = CoreUtils.getIOException(ex);
+                            sa.getPending().forEach(e -> errorList.add(new Pair<>(e,io)));
+                            sa.getPending().clear();
+                            continue;
+                        }
+                        sa.events(eventsOccurred).forEach(readyList::add);
+                        resetList.add(() -> sa.resetInterestOps(eventsOccurred));
+                    }
+
+                    selector.selectNow(); // complete cancellation
+                    selector.selectedKeys().clear();
+
+                    // handle selected events
+                    readyList.forEach((e) -> handleEvent(e, null));
+                    readyList.clear();
+
+                    // handle errors (closed channels etc...)
+                    errorList.forEach((p) -> handleEvent(p.first, p.second));
+                    errorList.clear();
+
+                    // reset interest ops for selected channels
+                    resetList.forEach(Runnable::run);
+                    resetList.clear();
+
+                }
+            } catch (Throwable e) {
+                if (!closed) {
+                    // This terminates thread. So, better just print stack trace
+                    String err = CoreUtils.stackTrace(e);
+                    logger.error("{}: {}: {}", getName(),
+                            "TcpServerImpl shutting down due to fatal error", err);
+                }
+                if (logger.isDebugEnabled()) logger.debug("shutting down", e);
+            } finally {
+                if (logger.isDebugEnabled()) logger.debug("{} : stopping", getName());
+                shutdown();
+            }
         }
     }
 

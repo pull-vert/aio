@@ -49,6 +49,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Stream;
 
 public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAPI {
 
@@ -120,7 +121,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         private final Set<AsyncEvent<T>> pending;
         private int interestOps;
 
-        SelectorAttachment(T chan, Selector selector) {
+        public SelectorAttachment(T chan, Selector selector) {
             this.pending = new HashSet<>();
             this.chan = chan;
             this.selector = selector;
@@ -148,6 +149,15 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             }
         }
 
+        /**
+         * Returns a Stream<AsyncEvents> containing only events that are
+         * registered with the given {@code interestOps}.
+         */
+        public Stream<AsyncEvent<T>> events(int interestOps) {
+            return pending.stream()
+                    .filter(ev -> (ev.getInterestOps() & interestOps) != 0);
+        }
+
         void abortPending(Throwable x) {
             if (!pending.isEmpty()) {
                 AsyncEvent[] evts = pending.toArray(new AsyncEvent[0]);
@@ -157,6 +167,14 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     event.abort(io);
                 }
             }
+        }
+
+        public T getChan() {
+            return chan;
+        }
+
+        public Set<AsyncEvent<T>> getPending() {
+            return pending;
         }
     }
 }
