@@ -41,7 +41,12 @@ package org.aio.tcp;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.ServerOrClient;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 public abstract class TcpServerOrClient extends ServerOrClient<SocketChan> implements TcpServerOrClientAPI {
+    public TcpServerOrClient(AtomicLong IDS) {
+        super(IDS);
+    }
 
     // Optimization for reading SSL encrypted data
     // --------------------------------------------

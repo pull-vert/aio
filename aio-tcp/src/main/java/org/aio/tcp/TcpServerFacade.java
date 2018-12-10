@@ -38,12 +38,8 @@
 
 package org.aio.tcp;
 
-import org.aio.core.AsyncEvent;
-import org.aio.core.common.BufferSupplier;
-
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
-import java.nio.channels.ClosedChannelException;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
@@ -51,7 +47,7 @@ import java.util.concurrent.Executor;
  * A TcpServerFacade is a simple class that wraps an TcpServer implementation
  * and delegates everything to its implementation delegate.
  */
-final class TcpServerFacade extends TcpServerOrClient implements TcpServer {
+final class TcpServerFacade implements TcpServer {
 
     private final TcpServerImpl impl;
 
@@ -77,34 +73,9 @@ final class TcpServerFacade extends TcpServerOrClient implements TcpServer {
         return impl.getSslParameters();
     }
 
-   @Override
+    @Override
     public Optional<Executor> getExecutor() {
         return impl.getExecutor();
-    }
-
-    @Override
-    protected BufferSupplier getSSLBufferSupplier() {
-        return impl.getSSLBufferSupplier();
-    }
-
-    @Override
-    protected void registerEvent(AsyncEvent exchange) {
-        impl.registerEvent(exchange);
-    }
-
-    @Override
-    protected void eventUpdated(AsyncEvent event) throws ClosedChannelException {
-        impl.eventUpdated(event);
-    }
-
-    @Override
-    protected boolean isSelectorThread() {
-        return impl.isSelectorThread();
-    }
-
-    @Override
-    protected DelegatingExecutor theExecutor() {
-        return impl.theExecutor();
     }
 
     @Override

@@ -44,29 +44,40 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
 public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAPI {
 
-    final Logger logger = LoggerFactory.getLogger(ServerOrClient.class);
+    private final Logger logger = LoggerFactory.getLogger(ServerOrClient.class);
 
     protected final long id;
-    protected final SelectorManager selmgr;
+    protected final SelectorManager<T> selmgr;
     /** A Set of, deadline first, ordered timeout events. */
-    protected final TreeSet<TimeoutEvent> timeouts;
+    private final TreeSet<TimeoutEvent> timeouts;
 
-    protected ServerOrClient() {
+    protected ServerOrClient(AtomicLong IDS) {
         timeouts = new TreeSet<>();
-        id = 0;
+        id = IDS.incrementAndGet();
+        try {
+            selmgr = new SelectorManager<>(this);
+        } catch (IOException e) {
+            // unlikely
+            throw new UncheckedIOException(e);
+        }
+        selmgr.setDaemon(true);
     }
 
     /**
@@ -90,6 +101,8 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     protected abstract boolean isSelectorThread();
 
     protected abstract DelegatingExecutor theExecutor();
+
+    protected abstract boolean isReferenced();
 
     // Timer controls.
     // Timers are implemented through timed Selector.select() calls.
@@ -115,6 +128,68 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     // todo : close what needs to be closed
     protected void stop() {
 
+    }
+
+    /**
+     * Purges ( handles ) timer events that have passed their deadline, and
+     * returns the amount of time, in milliseconds, until the next earliest
+     * event. A return value of 0 means that there are no events.
+     */
+    private long purgeTimeoutsAndReturnNextDeadline() {
+        long diff = 0L;
+        List<TimeoutEvent> toHandle = null;
+        int remaining = 0;
+        // enter critical section to retrieve the timeout event to handle
+        synchronized(this) {
+            if (timeouts.isEmpty()) return 0L;
+
+            Instant now = Instant.now();
+            Iterator<TimeoutEvent> itr = timeouts.iterator();
+            while (itr.hasNext()) {
+                TimeoutEvent event = itr.next();
+                diff = now.until(event.deadline(), ChronoUnit.MILLIS);
+                if (diff <= 0) {
+                    itr.remove();
+                    toHandle = (toHandle == null) ? new ArrayList<>() : toHandle;
+                    toHandle.add(event);
+                } else {
+                    break;
+                }
+            }
+            remaining = timeouts.size();
+        }
+
+        // can be useful for debugging
+        if (toHandle != null && logger.isTraceEnabled()) {
+            logger.trace("purgeTimeoutsAndReturnNextDeadline: handling {} events, remaining {}, next deadline: {}",
+                    toHandle.size(),
+                    remaining,
+                    (diff < 0 ? 0L : diff));
+        }
+
+        // handle timeout events out of critical section
+        if (toHandle != null) {
+            Throwable failed = null;
+            for (TimeoutEvent event : toHandle) {
+                try {
+                    if (logger.isTraceEnabled()) logger.trace("Firing timer {}", event);
+                    event.handle();
+                } catch (Error | RuntimeException e) {
+                    // Not expected. Handle remaining events then throw...
+                    // If e is an OOME or SOE it might simply trigger a new
+                    // error from here - but in this case there's not much we
+                    // could do anyway. Just let it flow...
+                    if (failed == null) failed = e;
+                    else failed.addSuppressed(e);
+                    if (logger.isTraceEnabled()) logger.trace("Failed to handle event {}: {}", event, e);
+                }
+            }
+            if (failed instanceof Error) throw (Error) failed;
+            if (failed instanceof RuntimeException) throw (RuntimeException) failed;
+        }
+
+        // return time to wait until next event. 0L if there's no more events.
+        return diff < 0 ? 0L : diff;
     }
 
     /**
@@ -155,7 +230,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
      * by the SelectorManager thread. One of these objects required per
      * connection.
      */
-    protected static class SelectorAttachment<T extends Chan> {
+    static class SelectorAttachment<T extends Chan> {
         final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
 
         private final T chan;
@@ -163,13 +238,13 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         private final Set<AsyncEvent<T>> pending;
         private int interestOps;
 
-        public SelectorAttachment(T chan, Selector selector) {
+        SelectorAttachment(T chan, Selector selector) {
             this.pending = new HashSet<>();
             this.chan = chan;
             this.selector = selector;
         }
 
-        public void register(AsyncEvent<T> e) throws ClosedChannelException {
+        void register(AsyncEvent<T> e) {
             int newOps = e.getInterestOps();
             // re register interest if we are not already interested
             // in the event. If the event is paused, then the pause will
@@ -195,7 +270,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
          * Returns a Stream<AsyncEvents> containing only events that are
          * registered with the given {@code interestOps}.
          */
-        public Stream<AsyncEvent<T>> events(int interestOps) {
+        Stream<AsyncEvent<T>> events(int interestOps) {
             return pending.stream()
                     .filter(ev -> (ev.getInterestOps() & interestOps) != 0);
         }
@@ -204,7 +279,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
          * Removes any events with the given {@code interestOps}, and if no
          * events remaining, cancels the associated SelectionKey.
          */
-        public void resetInterestOps(int interestOps) {
+        void resetInterestOps(int interestOps) {
             int newOps = 0;
 
             Iterator<AsyncEvent<T>> itr = pending.iterator();
@@ -257,11 +332,11 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             }
         }
 
-        public T getChan() {
+        T getChan() {
             return chan;
         }
 
-        public Set<AsyncEvent<T>> getPending() {
+        Set<AsyncEvent<T>> getPending() {
             return pending;
         }
     }
@@ -297,7 +372,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     }
 
     // Main loop for this server's selector
-    private final static class SelectorManager<T extends Chan> extends Thread {
+    protected final static class SelectorManager<T extends Chan> extends Thread {
 
         final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
 
@@ -332,7 +407,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         private final List<AsyncTriggerEvent> deregistrations;
         ServerOrClient<T> owner;
 
-        public SelectorManager(ServerOrClient<T> ref) throws IOException {
+        SelectorManager(ServerOrClient<T> ref) throws IOException {
             super(null, null,
                     "TcpServer-" + ref.id + "-SelectorManager",
                     0, false);
@@ -343,7 +418,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         }
 
         @SuppressWarnings("unchecked")
-        void eventUpdated(AsyncEvent<T> e) throws ClosedChannelException {
+        public void eventUpdated(AsyncEvent<T> e) throws ClosedChannelException {
             if (Thread.currentThread() == this) {
                 SelectionKey key = e.getChan().getChannel().keyFor(selector);
                 if (key != null && key.isValid()) {
@@ -365,12 +440,12 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
         // This returns immediately. So caller not allowed to send/receive
         // on connection.
-        synchronized void register(AsyncEvent<T> e) {
+        public synchronized void register(AsyncEvent<T> e) {
             registrations.add(e);
             selector.wakeup();
         }
 
-        synchronized void cancel(T e) {
+        public synchronized void cancel(T e) {
             SelectionKey key = e.getChannel().keyFor(selector);
             if (key != null) {
                 key.cancel();
@@ -393,6 +468,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             }
         }
 
+        @SuppressWarnings("unchecked")
         @Override
         public void run() {
             List<Pair<AsyncEvent,IOException>> errorList = new ArrayList<>();
@@ -418,7 +494,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                             SelectionKey key = null;
                             try {
                                 key = chan.getChannel().keyFor(selector);
-                                SelectorAttachment sa;
+                                SelectorAttachment<T> sa;
                                 if (key == null || !key.isValid()) {
                                     if (key != null) {
                                         // key is canceled.
@@ -426,9 +502,9 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                                         // before registering the new event.
                                         selector.selectNow();
                                     }
-                                    sa = new SelectorAttachment(chan, selector);
+                                    sa = new SelectorAttachment<>(chan, selector);
                                 } else {
-                                    sa = (SelectorAttachment) key.attachment();
+                                    sa = (SelectorAttachment<T>) key.attachment();
                                 }
                                 // may throw IOE if channel closed: that's OK
                                 sa.register(event);
