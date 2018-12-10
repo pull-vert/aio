@@ -40,6 +40,7 @@ package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
 import org.aio.core.AsyncTriggerEvent;
+import org.aio.core.TimeoutEvent;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
 import org.aio.core.common.Pair;
@@ -55,10 +56,9 @@ import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -79,43 +79,12 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     protected static final AtomicLong TCP_SERVER_IDS = new AtomicLong();
     final Logger logger = LoggerFactory.getLogger(TcpServerImpl.class);
 
-    // Define the default factory as a static inner class
-    // that embeds all the necessary logic to avoid
-    // the risk of using a lambda that might keep a reference on the
-    // TcpServer instance from which it was created (helps with heapdump
-    // analysis).
-    private static final class DefaultThreadFactory implements ThreadFactory {
-        private final String namePrefix;
-        private final AtomicInteger nextId = new AtomicInteger();
-
-        DefaultThreadFactory(long serverID) {
-            namePrefix = "TcpServer-" + serverID + "-Worker-";
-        }
-
-        @Override
-        public Thread newThread(Runnable r) {
-            String name = namePrefix + nextId.getAndIncrement();
-            Thread t;
-            if (System.getSecurityManager() == null) {
-                t = new Thread(null, r, name, 0, false);
-            } else {
-                // code from jdk11, uses jdk.internal.misc.Unsafe so not callable here
-//                t = InnocuousThread.newThread(name, r);
-                // so use code from jdk9
-                t = new Thread(null, r, name, 0, true);
-            }
-            t.setDaemon(true);
-            return t;
-        }
-    }
-
     private final int port;
     private final DelegatingExecutor delegatingExecutor;
     private final boolean isDefaultExecutor;
     // Security parameters
     private final SSLContext sslContext;
     private final SSLParameters sslParams;
-    private final SelectorManager selmgr;
     private final long id;
     private final String dbgTag;
 
@@ -191,6 +160,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     }
 
     public TcpServerImpl(TcpServerBuilderImpl builder, SingleFacadeFactory facadeFactory) {
+        super();
         if (builder.port > 0) {
             port = builder.port;
         } else {
@@ -201,7 +171,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         sslContext = builder.sslContext;
         Executor ex = builder.executor;
         if (ex == null) {
-            ex = Executors.newCachedThreadPool(new DefaultThreadFactory(id));
+            ex = Executors.newCachedThreadPool(new DefaultThreadFactory("TcpServer", id));
             isDefaultExecutor = true;
         } else {
             isDefaultExecutor = false;
@@ -281,18 +251,6 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         return delegatingExecutor;
     }
 
-    // Internal methods
-
-    private void start() {
-        selmgr.start();
-    }
-
-    // Called from the SelectorManager thread, just before exiting.
-    // todo : close what needs to be closed
-    private void stop() {
-
-    }
-
     // Returns the facade that was returned to the application code.
     // May be null if that facade is no longer referenced.
     final TcpServerFacade facade() {
@@ -328,6 +286,31 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     private final static class SelectorManager extends Thread {
 
         final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
+
+        // For testing purposes we have an internal System property that
+        // can control the frequency at which the selector manager will wake
+        // up when there are no pending operations.
+        // Increasing the frequency (shorter delays) might allow the selector
+        // to observe that the facade is no longer referenced and might allow
+        // the selector thread to terminate more timely - for when nothing is
+        // ongoing it will only check for that condition every NODEADLINE ms.
+        // To avoid misuse of the property, the delay that can be specified
+        // is comprised between [MIN_NODEADLINE, MAX_NODEADLINE], and its default
+        // value if unspecified (or <= 0) is DEF_NODEADLINE = 3000ms
+        // The property is -Daio.selectorTimeout=<millis>
+        private static final int MIN_NODEADLINE = 1000; // ms
+        private static final int MAX_NODEADLINE = 1000 * 1200; // ms
+        private static final int DEF_NODEADLINE = 3000; // ms
+        private static final long NODEADLINE; // default is DEF_NODEADLINE ms
+        static {
+            // ensure NODEADLINE is initialized with some valid value.
+            long deadline =  CoreUtils.getIntegerProperty(
+                    "aio.selectorTimeout",
+                    DEF_NODEADLINE); // millis
+            if (deadline <= 0) deadline = DEF_NODEADLINE;
+            deadline = Math.max(deadline, MIN_NODEADLINE);
+            NODEADLINE = Math.min(deadline, MAX_NODEADLINE);
+        }
 
         private final Selector selector;
         private volatile boolean closed;
@@ -472,41 +455,44 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
                     if (!owner.isReferenced()) {
                         if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                 getName(),
-                                "HttpClient no longer referenced. Exiting...");
+                                "TcpServer no longer referenced. Exiting...");
                         return;
                     }
 
                     // Timeouts will have milliseconds granularity. It is important
                     // to handle them in a timely fashion.
                     long nextTimeout = owner.purgeTimeoutsAndReturnNextDeadline();
-                    if (debugtimeout.on())
-                        debugtimeout.log("next timeout: %d", nextTimeout);
+                    if (logger.isDebugEnabled())
+                        logger.debug("next timeout: {}", nextTimeout);
 
                     // Keep-alive have seconds granularity. It's not really an
                     // issue if we keep connections linger a bit more in the keep
                     // alive cache.
-                    long nextExpiry = pool.purgeExpiredConnectionsAndReturnNextDeadline();
-                    if (debugtimeout.on())
-                        debugtimeout.log("next expired: %d", nextExpiry);
+                    // todo connection pool is just for Http1 ?
+//                    long nextExpiry = pool.purgeExpiredConnectionsAndReturnNextDeadline();
+//                    if (logger.isDebugEnabled())
+//                        logger.debug("next expired: {}", nextExpiry);
 
                     assert nextTimeout >= 0;
-                    assert nextExpiry >= 0;
+//                    assert nextExpiry >= 0;
 
                     // Don't wait for ever as it might prevent the thread to
                     // stop gracefully. millis will be 0 if no deadline was found.
                     if (nextTimeout <= 0) nextTimeout = NODEADLINE;
 
-                    // Clip nextExpiry at NODEADLINE limit. The default
-                    // keep alive is 1200 seconds (half an hour) - we don't
-                    // want to wait that long.
-                    if (nextExpiry <= 0) nextExpiry = NODEADLINE;
-                    else nextExpiry = Math.min(NODEADLINE, nextExpiry);
+//                    // Clip nextExpiry at NODEADLINE limit. The default
+//                    // keep alive is 1200 seconds (half an hour) - we don't
+//                    // want to wait that long.
+//                    if (nextExpiry <= 0) nextExpiry = NODEADLINE;
+//                    else nextExpiry = Math.min(NODEADLINE, nextExpiry);
 
                     // takes the least of the two.
-                    long millis = Math.min(nextExpiry, nextTimeout);
+//                    long millis = Math.min(nextExpiry, nextTimeout);
 
-                    if (debugtimeout.on())
-                        debugtimeout.log("Next deadline is %d",
+                    long millis = nextTimeout;
+
+                    if (logger.isDebugEnabled())
+                        logger.debug("Next deadline is {}",
                                 (millis == 0 ? NODEADLINE : millis));
                     //debugPrint(selector);
                     int n = selector.select(millis == 0 ? NODEADLINE : millis);
@@ -514,9 +500,9 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
                         // Check whether client is still alive, and if not,
                         // gracefully stop this thread
                         if (!owner.isReferenced()) {
-                            Log.logTrace("{0}: {1}",
+                            if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                     getName(),
-                                    "HttpClient no longer referenced. Exiting...");
+                                    "TcpServer no longer referenced. Exiting...");
                             return;
                         }
                         owner.purgeTimeoutsAndReturnNextDeadline();
@@ -579,10 +565,81 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
                 shutdown();
             }
         }
+
+        /** Handles the given event. The given ioe may be null. */
+        void handleEvent(AsyncEvent event, IOException ioe) {
+            if (closed || ioe != null) {
+                event.abort(ioe);
+            } else {
+                event.handle();
+            }
+        }
     }
 
     // Return all supported params
     private static SSLParameters getDefaultParams(SSLContext ctx) {
         return ctx.getSupportedSSLParameters();
+    }
+
+    /**
+     * Purges ( handles ) timer events that have passed their deadline, and
+     * returns the amount of time, in milliseconds, until the next earliest
+     * event. A return value of 0 means that there are no events.
+     */
+    private long purgeTimeoutsAndReturnNextDeadline() {
+        long diff = 0L;
+        List<TimeoutEvent> toHandle = null;
+        int remaining = 0;
+        // enter critical section to retrieve the timeout event to handle
+        synchronized(this) {
+            if (timeouts.isEmpty()) return 0L;
+
+            Instant now = Instant.now();
+            Iterator<TimeoutEvent> itr = timeouts.iterator();
+            while (itr.hasNext()) {
+                TimeoutEvent event = itr.next();
+                diff = now.until(event.deadline(), ChronoUnit.MILLIS);
+                if (diff <= 0) {
+                    itr.remove();
+                    toHandle = (toHandle == null) ? new ArrayList<>() : toHandle;
+                    toHandle.add(event);
+                } else {
+                    break;
+                }
+            }
+            remaining = timeouts.size();
+        }
+
+        // can be useful for debugging
+        if (toHandle != null && logger.isTraceEnabled()) {
+            logger.trace("purgeTimeoutsAndReturnNextDeadline: handling {} events, remaining {}, next deadline: {}",
+                    toHandle.size(),
+                    remaining,
+                    (diff < 0 ? 0L : diff));
+        }
+
+        // handle timeout events out of critical section
+        if (toHandle != null) {
+            Throwable failed = null;
+            for (TimeoutEvent event : toHandle) {
+                try {
+                    if (logger.isTraceEnabled()) logger.trace("Firing timer {}", event);
+                    event.handle();
+                } catch (Error | RuntimeException e) {
+                    // Not expected. Handle remaining events then throw...
+                    // If e is an OOME or SOE it might simply trigger a new
+                    // error from here - but in this case there's not much we
+                    // could do anyway. Just let it flow...
+                    if (failed == null) failed = e;
+                    else failed.addSuppressed(e);
+                    if (logger.isTraceEnabled()) logger.trace("Failed to handle event {}: {}", event, e);
+                }
+            }
+            if (failed instanceof Error) throw (Error) failed;
+            if (failed instanceof RuntimeException) throw (RuntimeException) failed;
+        }
+
+        // return time to wait until next event. 0L if there's no more events.
+        return diff < 0 ? 0L : diff;
     }
 }

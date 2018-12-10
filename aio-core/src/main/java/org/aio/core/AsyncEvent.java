@@ -76,7 +76,7 @@ public abstract class AsyncEvent<T extends Chan> {
      */
     public abstract void abort(IOException ioe);
 
-    public boolean getRepeating() {
+    public boolean isRepeating() {
         return (flags & REPEATING) != 0;
     }
 }

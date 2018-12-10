@@ -67,5 +67,5 @@ public final class AsyncTriggerEvent extends AsyncEvent{
     @Override
     public void abort(IOException ioe) { errorHandler.accept(ioe); }
     @Override
-    public boolean getRepeating() { return false; }
+    public boolean isRepeating() { return false; }
 }
