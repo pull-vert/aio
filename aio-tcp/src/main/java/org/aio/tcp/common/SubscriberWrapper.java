@@ -76,22 +76,22 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class SubscriberWrapper
     implements FlowTube.TubeSubscriber, Closeable, Flow.Processor<List<ByteBuffer>, List<ByteBuffer>> {
-    final Logger logger = LoggerFactory.getLogger(SubscriberWrapper.class);
+    private final Logger logger = LoggerFactory.getLogger(SubscriberWrapper.class);
 
     public enum SchedulingAction { CONTINUE, RETURN, RESCHEDULE }
 
-    volatile Flow.Subscription upstreamSubscription;
-    final SubscriptionBase downstreamSubscription;
-    volatile boolean upstreamCompleted;
-    volatile boolean downstreamCompleted;
-    volatile boolean completionAcknowledged;
+    private volatile Flow.Subscription upstreamSubscription;
+    private final SubscriptionBase downstreamSubscription;
+    private volatile boolean upstreamCompleted;
+    private volatile boolean downstreamCompleted;
+    private volatile boolean completionAcknowledged;
     private volatile Subscriber<? super List<ByteBuffer>> downstreamSubscriber;
     // processed byte to send to the downstream subscriber.
     private final ConcurrentLinkedQueue<List<ByteBuffer>> outputQ;
     private final CompletableFuture<Void> cf;
     private final SequentialScheduler pushScheduler;
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    final AtomicLong upstreamWindow = new AtomicLong(0);
+    private final AtomicLong upstreamWindow = new AtomicLong(0);
 
     /**
      * Wraps the given downstream subscriber. For each call to {@link
@@ -147,7 +147,7 @@ public abstract class SubscriberWrapper
      * @param buffers a List of ByteBuffers.
      * @param complete if true then no more data will be added to the list
      */
-    protected abstract void incoming(List<ByteBuffer> buffers, boolean complete);
+    abstract void incoming(List<ByteBuffer> buffers, boolean complete);
 
     /**
      * This method is called to determine the window size to use at any time. The
@@ -163,7 +163,7 @@ public abstract class SubscriberWrapper
      *
      * @return value to add to currentWindow
      */
-    protected long upstreamWindowUpdate(long currentWindow, long downstreamQsize) {
+    private long upstreamWindowUpdate(long currentWindow, long downstreamQsize) {
         if (downstreamQsize > 5) {
             return 0;
         }
@@ -179,7 +179,7 @@ public abstract class SubscriberWrapper
      * Override this if anything needs to be done after the upstream subscriber
      * has subscribed
      */
-    protected void onSubscribe() {
+    private void onSubscribe() {
     }
 
     /**
@@ -187,7 +187,7 @@ public abstract class SubscriberWrapper
      * and processing the input queue.
      * @return
      */
-    protected SchedulingAction enterScheduling() {
+    private SchedulingAction enterScheduling() {
         return SchedulingAction.CONTINUE;
     }
 
@@ -338,7 +338,7 @@ public abstract class SubscriberWrapper
         }
     }
 
-    void upstreamWindowUpdate() {
+    private void upstreamWindowUpdate() {
         long downstreamQueueSize = outputQ.size();
         long upstreamWindowSize = upstreamWindow.get();
         long n = upstreamWindowUpdate(upstreamWindowSize, downstreamQueueSize);
@@ -396,7 +396,7 @@ public abstract class SubscriberWrapper
         errorCommon(Objects.requireNonNull(throwable));
     }
 
-    protected boolean errorCommon(Throwable throwable) {
+    private boolean errorCommon(Throwable throwable) {
         assert throwable != null ||
                 (throwable = new AssertionError("null throwable")) != null;
         if (errorRef.compareAndSet(null, throwable)) {
@@ -442,7 +442,7 @@ public abstract class SubscriberWrapper
         incomingCaller(List.of(l), false);
     }
 
-    void checkCompletion() {
+    private void checkCompletion() {
         if (downstreamCompleted || !upstreamCompleted) {
             return;
         }
@@ -463,7 +463,7 @@ public abstract class SubscriberWrapper
     }
 
     // called from the downstream Subscription.cancel()
-    void downstreamCompletion() {
+    private void downstreamCompletion() {
         upstreamSubscription.cancel();
         cf.complete(null);
     }

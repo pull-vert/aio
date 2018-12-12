@@ -55,16 +55,16 @@ public class SubscriptionBase implements Flow.Subscription {
 
     final Demand demand = new Demand();
 
-    final SequentialScheduler scheduler; // when window was zero and is opened, run this
-    final Runnable cancelAction; // when subscription cancelled, run this
-    final AtomicBoolean cancelled;
-    final Consumer<Throwable> onError;
+    private final SequentialScheduler scheduler; // when window was zero and is opened, run this
+    private final Runnable cancelAction; // when subscription cancelled, run this
+    private final AtomicBoolean cancelled;
+    private final Consumer<Throwable> onError;
 
-    public SubscriptionBase(SequentialScheduler scheduler, Runnable cancelAction) {
+    SubscriptionBase(SequentialScheduler scheduler, Runnable cancelAction) {
         this(scheduler, cancelAction, null);
     }
 
-    public SubscriptionBase(SequentialScheduler scheduler,
+    private SubscriptionBase(SequentialScheduler scheduler,
                             Runnable cancelAction,
                             Consumer<Throwable> onError) {
         this.scheduler = scheduler;
@@ -99,7 +99,7 @@ public class SubscriptionBase implements Flow.Subscription {
      * externally. If the window could not be reduced by 1, then false
      * is returned and the scheduler will run later when the window is updated.
      */
-    public boolean tryDecrement() {
+    boolean tryDecrement() {
         return demand.tryDecrement();
     }
 
