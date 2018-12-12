@@ -10,14 +10,16 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 aio-core :
 * Chan is an abstraction over java.nio.channels.SelectableChannel
 * ChanTube is a Publisher and Subscriber on a Chan
-* SSL and TLS support
+* SSL and TLSv1.2 support
 
 aio-tcp :
 * TcpServer
 * TcpClient
 
 ## TODO
+* Bybu, an abstraction over List<ByteBuffer>
 * HTTP-2 module
 * UDP module
-* JDK 11 module with TLSv1.3 support
+* JDK 11 core module with at least TLSv1.3 support
+* pure QUIC support
 * [HTTP/3](https://quicwg.org/base-drafts/draft-ietf-quic-http.html) based on QUIC = UDP + TLSv1.3 or greater. It was previously known as HTTP-over-QUIC.
