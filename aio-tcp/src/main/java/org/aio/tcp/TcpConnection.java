@@ -39,12 +39,19 @@
 package org.aio.tcp;
 
 import org.aio.core.FlowTube;
+import org.aio.core.common.CoreUtils;
+import org.aio.core.common.Demand;
+import org.aio.core.util.concurrent.SequentialScheduler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Flow;
 
 public abstract class TcpConnection implements Closeable {
 
@@ -82,7 +89,6 @@ public abstract class TcpConnection implements Closeable {
 
     interface TcpPublisher extends FlowTube.TubePublisher {
         void enqueue(List<ByteBuffer> buffers) throws IOException;
-        void enqueueUnordered(List<ByteBuffer> buffers) throws IOException;
         void signalEnqueued() throws IOException;
     }
 
@@ -91,4 +97,122 @@ public abstract class TcpConnection implements Closeable {
      * if invoked before connecting.
      */
     abstract TcpPublisher publisher();
+
+    /**
+     * A publisher that makes it possible to publish (write) ordered (normal
+     * priority) buffers downstream.
+     */
+    final class PlainTcpPublisher implements TcpPublisher {
+        private final Logger logger = LoggerFactory.getLogger(PlainTcpPublisher.class);
+
+        final Object reading;
+        PlainTcpPublisher() {
+            this(new Object());
+        }
+        PlainTcpPublisher(Object readingLock) {
+            this.reading = readingLock;
+        }
+        final ConcurrentLinkedDeque<List<ByteBuffer>> queue = new ConcurrentLinkedDeque<>();
+        volatile Flow.Subscriber<? super List<ByteBuffer>> subscriber;
+        volatile TcpWriteSubscription subscription;
+        final SequentialScheduler writeScheduler =
+                new SequentialScheduler(this::flushTask);
+        @Override
+        public void subscribe(Flow.Subscriber<? super List<ByteBuffer>> subscriber) {
+            synchronized (reading) {
+                //assert this.subscription == null;
+                //assert this.subscriber == null;
+                if (subscription == null) {
+                    subscription = new TcpWriteSubscription();
+                }
+                this.subscriber = subscriber;
+            }
+            // TODO: should we do this in the flow?
+            subscriber.onSubscribe(subscription);
+            signal();
+        }
+
+        void flushTask(SequentialScheduler.DeferredCompleter completer) {
+            try {
+                TcpWriteSubscription sub = subscription;
+                if (sub != null) sub.flush();
+            } finally {
+                completer.complete();
+            }
+        }
+
+        void signal() {
+            writeScheduler.runOrSchedule();
+        }
+
+        final class TcpWriteSubscription implements Flow.Subscription {
+            final Demand demand = new Demand();
+
+            @Override
+            public void request(long n) {
+                if (n <= 0) throw new IllegalArgumentException("non-positive request");
+                demand.increase(n);
+                if (logger.isDebugEnabled())
+                    logger.debug("TcpPublisher: got request of {} from {}", n,
+                            getConnectionFlow());
+                writeScheduler.runOrSchedule();
+            }
+
+            @Override
+            public void cancel() {
+                if (logger.isDebugEnabled())
+                    logger.debug("HttpPublisher: cancelled by {}", getConnectionFlow());
+            }
+
+            private boolean isEmpty() {
+                return queue.isEmpty();
+            }
+
+            private List<ByteBuffer> poll() {
+                return queue.poll();
+            }
+
+            void flush() {
+                while (!isEmpty() && demand.tryDecrement()) {
+                    List<ByteBuffer> elem = poll();
+                    if (logger.isDebugEnabled())
+                        logger.debug("TcpPublisher: sending {} bytes ({} buffers) to {}",
+                                CoreUtils.remaining(elem),
+                                elem.size(),
+                                getConnectionFlow());
+                    subscriber.onNext(elem);
+                }
+            }
+        }
+
+        @Override
+        public void enqueue(List<ByteBuffer> buffers) throws IOException {
+            queue.add(buffers);
+            int bytes = buffers.stream().mapToInt(ByteBuffer::remaining).sum();
+            logger.debug("added {} bytes to the write queue", bytes);
+        }
+
+        @Override
+        public void signalEnqueued() throws IOException {
+            logger.debug("signalling the publisher of the write queue");
+            signal();
+        }
+    }
+
+    private String dbgTag;
+    final String dbgString() {
+        FlowTube flow = getConnectionFlow();
+        String tag = dbgTag;
+        if (tag == null && flow != null) {
+            dbgTag = tag = this.getClass().getSimpleName() + "(" + flow + ")";
+        } else if (tag == null) {
+            tag = this.getClass().getSimpleName() + "(?)";
+        }
+        return tag;
+    }
+
+    @Override
+    public String toString() {
+        return "TcpConnection: " + getChan().toString();
+    }
 }
