@@ -72,6 +72,13 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     private final SSLParameters sslParams;
     private final String dbgTag;
 
+    // The SSL DirectBuffer Supplier provides the ability to recycle
+    // buffers used between the socket reader and the SSLEngine, or
+    // more precisely between the SocketTube publisher and the
+    // SSLFlowDelegate reader.
+    private final SSLDirectBufferSupplier<SocketChan> sslBufferSupplier
+            = new SSLDirectBufferSupplier<>(this);
+
     // This reference is used to keep track of the facade TcpServer
     // that was returned to the application code.
     // It makes it possible to know when the application no longer
@@ -201,7 +208,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
     @Override
     protected BufferSupplier getSSLBufferSupplier() {
-        return null;
+        return sslBufferSupplier;
     }
 
     // ServerOrClient methods
@@ -229,12 +236,12 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
     // Returns the facade that was returned to the application code.
     // May be null if that facade is no longer referenced.
-    final TcpServerFacade facade() {
+    private TcpServerFacade facade() {
         return facadeRef.get();
     }
 
     // Returns the pendingOperationCount.
-    final long referenceCount() {
+    private long referenceCount() {
         return pendingOperationCount.get();
     }
 
@@ -244,6 +251,11 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     protected final boolean isReferenced() {
         TcpServer facade = facade();
         return facade != null || referenceCount() > 0;
+    }
+
+    @Override
+    protected void stop() {
+        // todo close connections
     }
 
     String dbgString() {

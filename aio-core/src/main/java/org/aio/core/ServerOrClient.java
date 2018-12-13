@@ -39,6 +39,7 @@
 package org.aio.core;
 
 import org.aio.core.api.ServerOrClientAPI;
+import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
 import org.aio.core.common.Pair;
 import org.slf4j.Logger;
@@ -46,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
@@ -108,13 +110,13 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     // Timer controls.
     // Timers are implemented through timed Selector.select() calls.
 
-    protected synchronized void registerTimer(TimeoutEvent event) {
+    synchronized void registerTimer(TimeoutEvent event) {
         if (logger.isTraceEnabled()) logger.trace("Registering timer {}", event);
         timeouts.add(event);
         selmgr.wakeupSelector();
     }
 
-    protected synchronized void cancelTimer(TimeoutEvent event) {
+    synchronized void cancelTimer(TimeoutEvent event) {
         if (logger.isTraceEnabled()) logger.trace("Canceling timer {}", event);
         timeouts.remove(event);
     }
@@ -126,10 +128,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     }
 
     // Called from the SelectorManager thread, just before exiting.
-    // todo : close what needs to be closed
-    protected void stop() {
-
-    }
+    protected abstract void stop();
 
     /**
      * Purges ( handles ) timer events that have passed their deadline, and
@@ -541,7 +540,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     }
                     errorList.clear();
 
-                    // Check whether client is still alive, and if not,
+                    // Check whether serverOrClient is still alive, and if not,
                     // gracefully stop this thread
                     if (!owner.isReferenced()) {
                         if (logger.isTraceEnabled()) logger.trace("{}: {}",
@@ -588,7 +587,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     //debugPrint(selector);
                     int n = selector.select(millis == 0 ? NODEADLINE : millis);
                     if (n == 0) {
-                        // Check whether client is still alive, and if not,
+                        // Check whether serverOrClient is still alive, and if not,
                         // gracefully stop this thread
                         if (!owner.isReferenced()) {
                             if (logger.isTraceEnabled()) logger.trace("{}: {}",
@@ -664,6 +663,72 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             } else {
                 event.handle();
             }
+        }
+    }
+
+    // An implementation of BufferSupplier that manages a pool of
+    // maximum 3 direct byte buffers (SocketTube.MAX_BUFFERS) that
+    // are used for reading encrypted bytes off the channel before
+    // copying and subsequent unwrapping.
+    protected static final class SSLDirectBufferSupplier<T extends Chan> implements BufferSupplier {
+
+        private final Logger logger = LoggerFactory.getLogger(SSLDirectBufferSupplier.class);
+
+        private static final int POOL_SIZE = ChanTube.MAX_BUFFERS;
+        private final ByteBuffer[] pool = new ByteBuffer[POOL_SIZE];
+        private final ServerOrClient<T> serverOrClient;
+        private int tail, count; // no need for volatile: only accessed in SM thread.
+
+        public SSLDirectBufferSupplier(ServerOrClient<T> serverOrClient) {
+            this.serverOrClient = Objects.requireNonNull(serverOrClient);
+        }
+
+        // Gets a buffer from the pool, or allocates a new one if needed.
+        @Override
+        public ByteBuffer get() {
+            assert serverOrClient.isSelectorThread();
+            assert tail <= POOL_SIZE : "allocate tail is " + tail;
+            ByteBuffer buf;
+            if (tail == 0) {
+                if (logger.isDebugEnabled()) {
+                    // should not appear more than ChanTube.MAX_BUFFERS
+                    logger.debug("ByteBuffer.allocateDirect({})", CoreUtils.BUFSIZE);
+                }
+                assert count++ < POOL_SIZE : "trying to allocate more than "
+                        + POOL_SIZE + " buffers";
+                buf = ByteBuffer.allocateDirect(CoreUtils.BUFSIZE);
+            } else {
+                assert tail > 0 : "non positive tail value: " + tail;
+                tail--;
+                buf = pool[tail];
+                pool[tail] = null;
+            }
+            assert buf.isDirect();
+            assert buf.position() == 0;
+            assert buf.hasRemaining();
+            assert buf.limit() == CoreUtils.BUFSIZE;
+            assert tail < POOL_SIZE;
+            assert tail >= 0;
+            return buf;
+        }
+
+        // Returns the given buffer to the pool.
+        @Override
+        public void recycle(ByteBuffer buffer) {
+            assert serverOrClient.isSelectorThread();
+            assert buffer.isDirect();
+            assert !buffer.hasRemaining();
+            assert tail < POOL_SIZE : "recycle tail is " + tail;
+            assert tail >= 0;
+            buffer.position(0);
+            buffer.limit(buffer.capacity());
+            // don't fail if assertions are off. we have asserted above.
+            if (tail < POOL_SIZE) {
+                pool[tail] = buffer;
+                tail++;
+            }
+            assert tail <= POOL_SIZE;
+            assert tail > 0;
         }
     }
 }
