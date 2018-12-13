@@ -1,5 +1,5 @@
 # AIO
-AIO is a reactive j.u.c.Flow event-driven IO library, supporting TCP, UDP, HTTP/2, HTTP/3 protocols.
+AIO is a reactive event-driven IO library, supporting TCP, UDP, HTTP/2 and in the future QUIC and HTTP/3 protocols.
 
 AIO require **JDK 9** or later, as it relies on j.u.c.Flow API and TLSv1.2. It is modularized with Jigsaw.
 
@@ -21,5 +21,6 @@ aio-tcp :
 * HTTP-2 module
 * UDP module
 * JDK 11 core module with at least TLSv1.3 support
-* pure QUIC support
+* pure QUIC protocol with TLSv1.3 module ?
 * [HTTP/3](https://quicwg.org/base-drafts/draft-ietf-quic-http.html) based on QUIC = UDP + TLSv1.3 or greater. It was previously known as HTTP-over-QUIC.
+* Use [`ServiceLoader`](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html) mechanism for Executor to overwrite Executor used in JUnit tests.
