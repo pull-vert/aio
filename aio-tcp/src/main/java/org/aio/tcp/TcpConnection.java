@@ -38,7 +38,7 @@
 
 package org.aio.tcp;
 
-import org.aio.core.FlowTube;
+import org.aio.core.api.FlowTube;
 import org.aio.core.common.CoreUtils;
 import org.aio.core.common.Demand;
 import org.aio.core.util.concurrent.SequentialScheduler;

@@ -41,8 +41,6 @@ package org.aio.tcp;
 import org.aio.core.AsyncEvent;
 import org.aio.core.AsyncTriggerEvent;
 import org.aio.core.common.BufferSupplier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -145,7 +143,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         return facadeFactory.facade;
     }
 
-    public TcpServerImpl(TcpServerBuilderImpl builder, SingleFacadeFactory facadeFactory) {
+    private TcpServerImpl(TcpServerBuilderImpl builder, SingleFacadeFactory facadeFactory) {
         super(TCP_SERVER_IDS);
         if (builder.port > 0) {
             port = builder.port;

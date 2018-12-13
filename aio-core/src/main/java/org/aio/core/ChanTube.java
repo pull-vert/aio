@@ -38,6 +38,7 @@
 
 package org.aio.core;
 
+import org.aio.core.api.FlowTube;
 import org.aio.core.common.CoreUtils;
 import org.aio.core.common.Demand;
 import org.aio.core.util.concurrent.SequentialScheduler;
@@ -83,6 +84,10 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
         this.writeSubscriber = new InternalWriteSubscriber();
     }
 
+    // ===================================================================== //
+    //                            FlowTube                                   //
+    // ======================================================================//
+
     /**
      * Returns {@code true} if this flow is finished.
      * This happens when this flow internal read subscription is completed,
@@ -92,6 +97,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
      *
      * @return {@code true} if this flow is finished.
      */
+    @Override
     public boolean isFinished() {
         InternalReadPublisher.InternalReadSubscription subscription =
                 readPublisher.subscriptionImpl;
@@ -957,7 +963,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     // ===================================================================== //
 
     // This interface is used by readAvailable(BufferSource);
-    public interface BufferSource {
+    public static interface BufferSource {
         /**
          * Returns a buffer to read data from the channel.
          *

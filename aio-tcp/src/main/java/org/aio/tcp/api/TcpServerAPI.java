@@ -36,55 +36,35 @@
  * questions.
  */
 
-package org.aio.core;
+package org.aio.tcp.api;
 
-import java.util.Optional;
-import java.util.concurrent.Executor;
+import org.aio.core.api.ServerOrClientAPI;
+import org.aio.tcp.TcpServerImpl;
 
-public interface ServerOrClientAPI {
+public interface TcpServerAPI extends ServerOrClientAPI {
 
     /**
-     * A builder of {@link ServerOrClientAPI}.
+     * A builder of {@link TcpServerAPI}.
+     *
      */
-    public static interface Builder<T extends ServerOrClientAPI> {
+    public static interface Builder<T extends TcpServerAPI> extends ServerOrClientAPI.Builder<T> {
 
         /**
-         * Sets the executor to be used for asynchronous and dependent tasks.
+         * Sets the TCP port for TcpServer
          *
-         * <p> If this method is not invoked prior to {@linkplain #build()
-         * building}, a default executor is used
-         *
-         * @implNote The default executor uses a thread pool, with a custom
-         * thread factory. If a security manager has been installed, the thread
-         * factory creates threads that run with an access control context that
-         * has no permissions.
-         *
-         * @param executor the Executor
+         * @param port TCP port
          * @return this builder
          */
-        public Builder executor(Executor executor);
-
-        /**
-         * Returns a new child of {@link ServerOrClientAPI} built from the
-         * current state of this builder.
-         *
-         * @return a new child of TcpServerOrClient
-         */
-        public T build();
+        public Builder port(int port);
     }
 
     /**
-     * Returns an {@code Optional} containing this client or server's {@link
-     * Executor}. If no {@code Executor} was set in this client or server's
-     * builder, then the {@code Optional} is empty.
+     * Returns this server's port.
      *
-     * <p> Even though this method may return an empty optional, the {@code
-     * TcpClientOrServer} may still have an non-exposed {@linkplain
-     * ServerOrClientAPI.Builder#executor(Executor) default executor} that
-     * is used for executing asynchronous and dependent tasks.
+     * <p> If no port was set in this server's builder, then the
+     * {@linkplain TcpServerImpl#DEFAULT_PORT default port} is returned.
      *
-     * @return an {@code Optional} containing this client or server's
-     * {@code Executor}
+     * @return this server's TCP port
      */
-    public Optional<Executor> getExecutor();
+    public int getPort();
 }

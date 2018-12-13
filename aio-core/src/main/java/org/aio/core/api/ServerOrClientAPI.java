@@ -36,20 +36,36 @@
  * questions.
  */
 
-package org.aio.tcp;
-
-import org.aio.core.ServerOrClientAPI;
+package org.aio.core.api;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
-public interface TcpServerOrClientAPI extends ServerOrClientAPI {
+public interface ServerOrClientAPI {
 
     /**
-     * A builder of {@link TcpServerOrClientAPI}.
+     * A builder of {@link ServerOrClientAPI}.
      */
-    public static interface Builder<T extends TcpServerOrClientAPI> extends ServerOrClientAPI.Builder<T> {
+    public static interface Builder<T extends ServerOrClientAPI> {
+
+        /**
+         * Sets the executor to be used for asynchronous and dependent tasks.
+         *
+         * <p> If this method is not invoked prior to {@linkplain #build()
+         * building}, a default executor is used
+         *
+         * @implNote The default executor uses a thread pool, with a custom
+         * thread factory. If a security manager has been installed, the thread
+         * factory creates threads that run with an access control context that
+         * has no permissions.
+         *
+         * @param executor the Executor
+         * @return this builder
+         */
+        public Builder executor(Executor executor);
+
         /**
          * Sets an {@code SSLContext}.
          *
@@ -78,7 +94,30 @@ public interface TcpServerOrClientAPI extends ServerOrClientAPI {
          * @return this builder
          */
         public Builder sslParameters(SSLParameters sslParameters);
+
+        /**
+         * Returns a new child of {@link ServerOrClientAPI} built from the
+         * current state of this builder.
+         *
+         * @return a new child of TcpServerOrClient
+         */
+        public T build();
     }
+
+    /**
+     * Returns an {@code Optional} containing this client or server's {@link
+     * Executor}. If no {@code Executor} was set in this client or server's
+     * builder, then the {@code Optional} is empty.
+     *
+     * <p> Even though this method may return an empty optional, the {@code
+     * TcpClientOrServer} may still have an non-exposed {@linkplain
+     * ServerOrClientAPI.Builder#executor(Executor) default executor} that
+     * is used for executing asynchronous and dependent tasks.
+     *
+     * @return an {@code Optional} containing this client or server's
+     * {@code Executor}
+     */
+    public Optional<Executor> getExecutor();
 
     /**
      * Returns an {@code Optional} containing this client or server's {@link

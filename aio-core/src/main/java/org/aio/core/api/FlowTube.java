@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core;
+package org.aio.core.api;
 
 import java.nio.ByteBuffer;
 import java.util.List;

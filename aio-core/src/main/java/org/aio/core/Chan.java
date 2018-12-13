@@ -8,15 +8,13 @@
 
 package org.aio.core;
 
+import org.aio.core.api.ChanAPI;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 
-/**
- * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel
- * NIO Selectable Channel}
- */
-public abstract class Chan<T extends SelectableChannel> {
+public abstract class Chan<T extends SelectableChannel> implements ChanAPI {
 
     /**
      * @return The delegated Channel

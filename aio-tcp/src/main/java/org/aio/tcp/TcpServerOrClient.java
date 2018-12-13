@@ -38,12 +38,13 @@
 
 package org.aio.tcp;
 
+import org.aio.core.api.ServerOrClientAPI;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.ServerOrClient;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public abstract class TcpServerOrClient extends ServerOrClient<SocketChan> implements TcpServerOrClientAPI {
+public abstract class TcpServerOrClient extends ServerOrClient<SocketChan> implements ServerOrClientAPI {
     public TcpServerOrClient(AtomicLong IDS) {
         super(IDS);
     }

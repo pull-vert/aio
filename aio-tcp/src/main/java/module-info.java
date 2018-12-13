@@ -10,5 +10,6 @@ module aio.tcp {
     requires aio.core;
     requires org.slf4j;
     exports org.aio.tcp;
+    exports org.aio.tcp.api;
     exports org.aio.tcp.common;
 }

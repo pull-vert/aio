@@ -6,7 +6,9 @@
  * file that accompanied this code.
  */
 
-package org.aio.core;
+package org.aio.core.api;
+
+import org.aio.core.Chan;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;

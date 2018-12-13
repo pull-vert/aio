@@ -47,15 +47,15 @@ import java.io.IOException;
  */
 public abstract class AsyncEvent<T extends Chan> {
 
-    public static final int REPEATING = 0x2; // one off event if not set
+    static final int REPEATING = 0x2; // one off event if not set
 
-    protected final int flags;
+    private final int flags;
 
     AsyncEvent() {
         this(0);
     }
 
-    public AsyncEvent(int flags) {
+    AsyncEvent(int flags) {
         this.flags = flags;
     }
 

@@ -6,10 +6,10 @@
  * file that accompanied this code.
  */
 
-module aio.core {
-    requires org.slf4j;
-    exports org.aio.core;
-    exports org.aio.core.api;
-    exports org.aio.core.common;
-    exports org.aio.core.util.concurrent;
+package org.aio.core.api;
+
+/**
+ * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel NIO Selectable Channel}
+ */
+public interface ChanAPI {
 }

@@ -39,7 +39,7 @@
 package org.aio.tcp;
 
 import org.aio.core.common.BufferSupplier;
-import org.aio.core.FlowTube;
+import org.aio.core.api.FlowTube;
 import org.aio.core.ChanTube;
 
 import java.nio.ByteBuffer;
