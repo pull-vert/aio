@@ -545,7 +545,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     if (!owner.isReferenced()) {
                         if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                 getName(),
-                                "TcpServer no longer referenced. Exiting...");
+                                "ServerOrClient no longer referenced. Exiting...");
                         return;
                     }
 
@@ -592,7 +592,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                         if (!owner.isReferenced()) {
                             if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                     getName(),
-                                    "TcpServer no longer referenced. Exiting...");
+                                    "ServerOrClient no longer referenced. Exiting...");
                             return;
                         }
                         owner.purgeTimeoutsAndReturnNextDeadline();
