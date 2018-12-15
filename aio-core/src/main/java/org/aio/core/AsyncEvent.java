@@ -51,7 +51,7 @@ public abstract class AsyncEvent<T extends Chan> {
 
     private final int flags;
 
-    AsyncEvent() {
+    public AsyncEvent() {
         this(0);
     }
 

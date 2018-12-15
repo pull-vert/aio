@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Flow;
 
@@ -73,6 +74,13 @@ public abstract class TcpConnection implements Closeable {
         return address;
     }
 
+    /**
+     * Finishes the connection phase.
+     *
+     * Returns a CompletableFuture that completes when any additional,
+     * type specific, setup has been done. Must be called after connectAsync.*/
+    public abstract CompletableFuture<Void> finishConnect();
+
     /** Tells whether, or not, this connection is connected to its destination. */
     abstract boolean isConnected();
 
@@ -93,13 +101,13 @@ public abstract class TcpConnection implements Closeable {
     }
 
     /**
-     * Returns the TCP publisher associated with this connection.  May be null
+     * Returns the TCP getPublisher associated with this connection.  May be null
      * if invoked before connecting.
      */
-    abstract TcpPublisher publisher();
+    abstract TcpPublisher getPublisher();
 
     /**
-     * A publisher that makes it possible to publish (write) ordered (normal
+     * A getPublisher that makes it possible to publish (write) ordered (normal
      * priority) buffers downstream.
      */
     final class PlainTcpPublisher implements TcpPublisher {
@@ -194,7 +202,7 @@ public abstract class TcpConnection implements Closeable {
 
         @Override
         public void signalEnqueued() throws IOException {
-            logger.debug("signalling the publisher of the write queue");
+            logger.debug("signalling the getPublisher of the write queue");
             signal();
         }
     }

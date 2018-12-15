@@ -52,7 +52,7 @@ import java.util.function.Supplier;
  * the {@linkplain java.nio.channels.SocketChannel TCP Socket Channel}
  * <br>
  * The read subscriber should call {@code subscribe} on the SocketChanTube before
- * the SocketChanTube is subscribed to the write publisher.
+ * the SocketChanTube is subscribed to the write getPublisher.
  */
 public class SocketChanTube extends ChanTube<SocketChan> {
 

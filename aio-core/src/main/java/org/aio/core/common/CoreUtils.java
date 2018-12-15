@@ -38,9 +38,12 @@
 
 package org.aio.core.common;
 
+import org.aio.core.HttpTimeoutException;
 import org.slf4j.Logger;
 
+import javax.net.ssl.SSLException;
 import java.io.*;
+import java.net.ConnectException;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -333,5 +336,19 @@ public final class CoreUtils {
         } else {
             return 1 << (32 - Integer.numberOfLeadingZeros(n - 1));
         }
+    }
+
+    public static Throwable toConnectException(Throwable e) {
+        if (e == null) return null;
+        e = getCompletionCause(e);
+        if (e instanceof ConnectException) return e;
+        if (e instanceof SecurityException) return e;
+        if (e instanceof SSLException) return e;
+        if (e instanceof Error) return e;
+        if (e instanceof HttpTimeoutException) return e;
+        Throwable cause = e;
+        e = new ConnectException(e.getMessage());
+        e.initCause(cause);
+        return e;
     }
 }

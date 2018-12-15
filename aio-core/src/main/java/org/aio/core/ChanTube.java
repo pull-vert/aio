@@ -159,7 +159,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     //                           Events                                      //
     // ======================================================================//
 
-    void signalClosed() {
+    public void signalClosed() {
         // Ensures that the subscriber will be terminated and that future
         // subscribers will be notified when the connection is closed.
         if (logger.isDebugEnabled()) {

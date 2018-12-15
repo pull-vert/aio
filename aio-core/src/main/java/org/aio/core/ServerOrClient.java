@@ -116,7 +116,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         selmgr.wakeupSelector();
     }
 
-    synchronized void cancelTimer(TimeoutEvent event) {
+    public synchronized void cancelTimer(TimeoutEvent event) {
         if (logger.isTraceEnabled()) logger.trace("Canceling timer {}", event);
         timeouts.remove(event);
     }
@@ -230,7 +230,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
      * by the SelectorManager thread. One of these objects required per
      * connection.
      */
-    static class SelectorAttachment<T extends Chan> {
+    protected static class SelectorAttachment<T extends Chan> {
         final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
 
         private final T chan;
@@ -338,6 +338,10 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
         Set<AsyncEvent<T>> getPending() {
             return pending;
+        }
+
+        public int getInterestOps() {
+            return interestOps;
         }
     }
 
@@ -663,6 +667,10 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             } else {
                 event.handle();
             }
+        }
+
+        public Selector getSelector() {
+            return selector;
         }
     }
 

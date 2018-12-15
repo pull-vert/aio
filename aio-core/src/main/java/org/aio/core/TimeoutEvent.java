@@ -59,7 +59,7 @@ public abstract class TimeoutEvent implements Comparable<TimeoutEvent> {
     private final Duration duration;
     private final Instant deadline;
 
-    TimeoutEvent(Duration duration) {
+    protected TimeoutEvent(Duration duration) {
         this.duration = duration;
         deadline = Instant.now().plus(duration);
     }

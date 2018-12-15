@@ -40,12 +40,16 @@ package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
 import org.aio.core.AsyncTriggerEvent;
+import org.aio.core.Chan;
 import org.aio.core.common.BufferSupplier;
+import org.aio.core.common.CoreUtils;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import java.lang.ref.WeakReference;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectionKey;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -74,7 +78,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
     // The SSL DirectBuffer Supplier provides the ability to recycle
     // buffers used between the socket reader and the SSLEngine, or
-    // more precisely between the SocketTube publisher and the
+    // more precisely between the SocketTube getPublisher and the
     // SSLFlowDelegate reader.
     private final SSLDirectBufferSupplier<SocketChan> sslBufferSupplier
             = new SSLDirectBufferSupplier<>(this);
@@ -267,6 +271,28 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         // Used by tests to get the client's id and compute the
         // name of the SelectorManager thread.
         return super.toString() + ("(" + id + ")");
+    }
+
+    // used for the connection window
+    int getReceiveBufferSize() {
+        return CoreUtils.getIntegerNetProperty(
+                "aio.receiveBufferSize",
+                0 // only set the size if > 0
+        );
+    }
+
+    final String debugInterestOps(SocketChan channel) {
+        try {
+            SelectionKey key = channel.getChannel().keyFor(selmgr.getSelector());
+            if (key == null) return "channel not registered with selector";
+            String keyInterestOps = key.isValid()
+                    ? "key.interestOps=" + key.interestOps() : "invalid key";
+            return String.format("channel registered with selector, %s, sa.interestOps=%s",
+                    keyInterestOps,
+                    ((SelectorAttachment)key.attachment()).getInterestOps());
+        } catch (Throwable t) {
+            return String.valueOf(t);
+        }
     }
 
     // Return all supported params
