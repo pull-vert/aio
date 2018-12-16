@@ -32,6 +32,7 @@ public abstract class Chan<T extends SelectableChannel> implements ChanAPI {
 
     /**
      * Write bytes from provided srcs ByteBuffer array to the Channel
+     * It's a gathering write
      *
      * @param srcs ByteBuffer array containing values to write
      * @return number of written bytes
