@@ -221,6 +221,8 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     }
 
     /**
+     * SelectorAttachment is the Object attached with SelectorKey
+     *
      * Tracks multiple user level registrations associated with one NIO
      * registration (SelectionKey). In this implementation, registrations
      * are one-off and when an event is posted the registration is cancelled
@@ -488,15 +490,20 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                         for (AsyncTriggerEvent event : deregistrations) {
                             event.handle();
                         }
+                        // clear deregistrations because we just handle all of them
                         deregistrations.clear();
+
                         for (AsyncEvent<T> event : registrations) {
                             if (event instanceof AsyncTriggerEvent) {
                                 readyList.add(event);
                                 continue;
                             }
+                            // Get Chan associated with the event
                             T chan = event.getChan();
                             SelectionKey key = null;
                             try {
+                                // Retrieves the key representing the channel's registration
+                                // with the given selector
                                 key = chan.getChannel().keyFor(selector);
                                 SelectorAttachment<T> sa;
                                 if (key == null || !key.isValid()) {
@@ -511,14 +518,17 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                                     sa = (SelectorAttachment<T>) key.attachment();
                                 }
                                 // may throw IOE if channel closed: that's OK
+                                // call SelectableChannel.register(selector, interestop, sa)
+                                // with interestop from event and SelectableChannel, Selector
+                                // from SelectorAttachment
                                 sa.register(event);
                                 if (!chan.getChannel().isOpen()) {
                                     throw new IOException("Channel closed");
                                 }
                             } catch (IOException e) {
                                 if (logger.isDebugEnabled())
-                                    logger.debug("Got " + e.getClass().getName()
-                                            + " while handling registration events");
+                                    logger.debug("Got {} while handling registration events",
+                                            e.getClass().getName());
                                 chan.getChannel().close();
                                 // let the event abort deal with it
                                 errorList.add(new Pair<>(event, e));
@@ -528,6 +538,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                                 }
                             }
                         }
+                        // clear registrations because we just handle all of them
                         registrations.clear();
                         selector.selectedKeys().clear();
                     }
@@ -536,12 +547,14 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                         assert event instanceof AsyncTriggerEvent;
                         event.handle();
                     }
+                    // clear readyList because we just handle all of them
                     readyList.clear();
 
                     for (Pair<AsyncEvent,IOException> error : errorList) {
                         // an IOException was raised and the channel closed.
                         handleEvent(error.first, error.second);
                     }
+                    // clear errorList because we just handle all of them
                     errorList.clear();
 
                     // Check whether serverOrClient is still alive, and if not,
