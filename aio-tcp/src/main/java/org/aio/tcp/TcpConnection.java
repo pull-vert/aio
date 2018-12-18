@@ -68,7 +68,7 @@ public abstract class TcpConnection implements Closeable {
         return tcpServerOrClient;
     }
 
-    abstract SocketChan getChan();
+    abstract SocketChan getSocketChan();
 
     final InetSocketAddress address() {
         return address;
@@ -236,6 +236,6 @@ public abstract class TcpConnection implements Closeable {
 
     @Override
     public String toString() {
-        return "TcpConnection: " + getChan().toString();
+        return "TcpConnection: " + getSocketChan().toString();
     }
 }

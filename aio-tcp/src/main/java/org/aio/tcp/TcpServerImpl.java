@@ -112,7 +112,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     //    from the map. This should also take care of push promises.
     // 2. For WebSocket the count is increased when creating a
     //    DetachedConnectionChannel for the socket, and decreased
-    //    when the the getChan is closed.
+    //    when the the getSocketChan is closed.
     //    In addition, the HttpClient facade is passed to the WebSocket builder,
     //    (instead of the client implementation delegate).
     // 3. For HTTP/1.1 the count is incremented before starting to parse the body
@@ -234,6 +234,9 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         return ctx.getSupportedSSLParameters();
     }
 
+    /**
+     * @author Frédéric Montariol
+     */
     public class SocketChanManager extends Thread {
 
         private final Logger logger = LoggerFactory.getLogger(SocketChanManager.class);
@@ -268,7 +271,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
             while (!Thread.currentThread().isInterrupted()) {
                 try {
                     SocketChan socketChan = new SocketChan(this.serverSocket.accept());
-                    if (logger.isDebugEnabled()) logger.debug("Socket accepted: {}", socketChan);
+                    if (logger.isDebugEnabled()) logger.debug("new Socket accepted: {}", socketChan);
                     TcpConnection tcpConnection = TcpConnection.createConnection(inetSocketAddress, owner, socketChan, false);
                     owner.activeTcpConnections.add(tcpConnection);
 

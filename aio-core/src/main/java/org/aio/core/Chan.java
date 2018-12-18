@@ -12,14 +12,40 @@ import org.aio.core.api.ChanAPI;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 
+/**
+ * Abstract class abstraction over a {@linkplain SelectableChannel NIO Selectable Channel}
+ * It provides only methods we use, with limited visibility
+ *
+ * @param <T> type of SelectableChannel
+ */
 public abstract class Chan<T extends SelectableChannel> implements ChanAPI {
 
-    /**
-     * @return The delegated Channel
-     */
-    abstract protected T getChannel();
+    private T delegate;
+
+    public Chan(T delegate) {
+        this.delegate = delegate;
+    }
+
+    boolean isOpen() {
+        return delegate.isOpen();
+    }
+
+    SelectionKey keyFor(Selector sel) {
+        return delegate.keyFor(sel);
+    }
+
+    void register(Selector sel, int ops, Object att) throws ClosedChannelException {
+        delegate.register(sel, ops, att);
+    }
+
+    void close() throws IOException {
+        delegate.close();
+    }
 
     /**
      * Read some bytes from the Channel and write them in the provided buf ByteBuffer
@@ -42,6 +68,6 @@ public abstract class Chan<T extends SelectableChannel> implements ChanAPI {
 
     @Override
     public String toString() {
-        return getChannel().toString();
+        return delegate.toString();
     }
 }

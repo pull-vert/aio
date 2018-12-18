@@ -49,7 +49,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -62,7 +61,7 @@ class PlainTcpConnection extends TcpConnection {
     private final Logger logger = LoggerFactory.getLogger(PlainTcpConnection.class);
 
     private final Object reading = new Object();
-    protected final SocketChan chan;
+    private final SocketChan socketChan;
     private final SocketChanTube tube; // need SocketChanTube to call signalClosed().
     private final PlainTcpPublisher writePublisher = new PlainTcpPublisher(reading);
     private volatile boolean connected;
@@ -122,7 +121,7 @@ class PlainTcpConnection extends TcpConnection {
 
         @Override
         public SocketChan getChan() {
-            return chan;
+            return socketChan;
         }
 
         @Override
@@ -134,15 +133,14 @@ class PlainTcpConnection extends TcpConnection {
         public void handle() {
             try {
                 assert !connected : "Already connected";
-                SocketChannel socketChannel = chan.getChannel();
-                assert !socketChannel.isBlocking() : "Unexpected blocking channel";
+                assert !socketChan.isBlocking() : "Unexpected blocking channel";
                 if (logger.isDebugEnabled())
                     logger.debug("ConnectEvent: finishing connect");
-                boolean finished = socketChannel.finishConnect();
+                boolean finished = socketChan.finishConnect();
                 assert finished : "Expected channel to be connected";
                 if (logger.isDebugEnabled())
                     logger.debug("ConnectEvent: connect finished: {} Local addr: {}",
-                              finished, socketChannel.getLocalAddress());
+                              finished, socketChan.getLocalAddress());
                 // complete async since the event runs on the SelectorManager thread
                 cf.completeAsync(() -> null, getServerOrClient().theExecutor());
             } catch (Throwable e) {
@@ -164,7 +162,7 @@ class PlainTcpConnection extends TcpConnection {
 //        CompletableFuture<Void> cf = new MinimalFuture<>();
 //        try {
 //            assert !connected : "Already connected";
-//            assert !chan.isBlocking() : "Unexpected blocking channel";
+//            assert !socketChan.isBlocking() : "Unexpected blocking channel";
 //            boolean finished;
 //
 //            connectTimerEvent = newConnectTimer(exchange, cf);
@@ -175,7 +173,7 @@ class PlainTcpConnection extends TcpConnection {
 //            }
 //
 //            PrivilegedExceptionAction<Boolean> pa =
-//                    () -> chan.connect(Utils.resolveAddress(address));
+//                    () -> socketChan.connect(Utils.resolveAddress(address));
 //            try {
 //                 finished = AccessController.doPrivileged(pa);
 //            } catch (PrivilegedActionException e) {
@@ -202,7 +200,7 @@ class PlainTcpConnection extends TcpConnection {
 
     @Override
     public CompletableFuture<Void> finishConnect() {
-        assert connected == false;
+        assert !connected;
         if (logger.isDebugEnabled())
             logger.debug("finishConnect, setting connected=true");
         connected = true;
@@ -215,31 +213,31 @@ class PlainTcpConnection extends TcpConnection {
      * Create a TCP Connection without SSL
      * Provided SocketChan must be opened or accepted by ServerSocketChannel before calling this constructor
      *
-     * @param addr
-     * @param tcpServerOrClient
-     * @param chan
+     * @param addr the InetSocketAddress
+     * @param tcpServerOrClient server or client that will hold the TcpConnection
+     * @param socketChan the SocketChan where we will read and write
      */
-    PlainTcpConnection(InetSocketAddress addr, TcpServerOrClient tcpServerOrClient, SocketChan chan) {
+    PlainTcpConnection(InetSocketAddress addr, TcpServerOrClient tcpServerOrClient, SocketChan socketChan) {
         super(addr, tcpServerOrClient);
         try {
-            this.chan = chan;
-            chan.getChannel().configureBlocking(false);
+            this.socketChan = socketChan;
+            socketChan.configureNonBlocking();
             trySetReceiveBufferSize(tcpServerOrClient.getReceiveBufferSize());
             if (logger.isDebugEnabled()) {
                 int bufsize = getInitialBufferSize();
                 logger.debug("Initial receive buffer size is: {}", bufsize);
             }
-            chan.getChannel().setOption(StandardSocketOptions.TCP_NODELAY, true);
+            socketChan.setOption(StandardSocketOptions.TCP_NODELAY, true);
             // wrap the channel in a Tube for async reading and writing
-            tube = new SocketChanTube(getServerOrClient(), chan, CoreUtils::getBuffer);
+            tube = new SocketChanTube(getServerOrClient(), socketChan, CoreUtils::getBuffer);
         } catch (IOException e) {
             throw new InternalError(e);
         }
     }
 
     @Override
-    SocketChan getChan() {
-        return chan;
+    SocketChan getSocketChan() {
+        return socketChan;
     }
 
     @Override
@@ -249,10 +247,10 @@ class PlainTcpConnection extends TcpConnection {
 
     private int getInitialBufferSize() {
         try {
-            return chan.getChannel().getOption(StandardSocketOptions.SO_RCVBUF);
+            return socketChan.getOption(StandardSocketOptions.SO_RCVBUF);
         } catch(IOException x) {
             if (logger.isDebugEnabled())
-                logger.debug("Failed to get initial receive buffer size on {}", chan);
+                logger.debug("Failed to get initial receive buffer size on {}", socketChan);
         }
         return 0;
     }
@@ -260,12 +258,12 @@ class PlainTcpConnection extends TcpConnection {
     private void trySetReceiveBufferSize(int bufsize) {
         try {
             if (bufsize > 0) {
-                chan.getChannel().setOption(StandardSocketOptions.SO_RCVBUF, bufsize);
+                socketChan.setOption(StandardSocketOptions.SO_RCVBUF, bufsize);
             }
         } catch(IOException x) {
             if (logger.isDebugEnabled())
                 logger.debug("Failed to set receive buffer size to {} on {}",
-                          bufsize, chan);
+                          bufsize, socketChan);
         }
     }
 
@@ -292,10 +290,10 @@ class PlainTcpConnection extends TcpConnection {
         try {
             logger.trace("Closing: {}", toString());
             if (logger.isDebugEnabled())
-                logger.debug("Closing channel: " + getServerOrClient().debugInterestOps(chan));
+                logger.debug("Closing channel: " + getServerOrClient().debugInterestOps(socketChan));
 //            if (connectTimerEvent != null)
 //                getServerOrClient().cancelTimer(connectTimerEvent);
-            chan.getChannel().close();
+            socketChan.close();
             tube.signalClosed();
         } catch (IOException e) {
             logger.trace("Closing resulted in " + e);

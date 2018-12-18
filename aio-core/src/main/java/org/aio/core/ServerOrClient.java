@@ -170,7 +170,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
     public final String debugInterestOps(T channel) {
         try {
-            SelectionKey key = channel.getChannel().keyFor(selmgr.getSelector());
+            SelectionKey key = channel.keyFor(selmgr.getSelector());
             if (key == null) return "channel not registered with selector";
             String keyInterestOps = key.isValid()
                     ? "key.interestOps=" + key.interestOps() : "invalid key";
@@ -336,11 +336,11 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             if (reRegister) {
                 // first time registration happens here also
                 try {
-                    chan.getChannel().register(selector, interestOps, this);
+                    chan.register(selector, interestOps, this);
                 } catch (Throwable x) {
                     abortPending(x);
                 }
-            } else if (!chan.getChannel().isOpen()) {
+            } else if (!chan.isOpen()) {
                 abortPending(new ClosedChannelException());
             }
         }
@@ -377,7 +377,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             }
 
             this.interestOps = newOps;
-            SelectionKey key = chan.getChannel().keyFor(selector);
+            SelectionKey key = chan.keyFor(selector);
             if (newOps == 0 && key != null && pending.isEmpty()) {
                 key.cancel();
             } else {
@@ -387,7 +387,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     }
                     key.interestOps(newOps);
                     // double check after
-                    if (!chan.getChannel().isOpen()) {
+                    if (!chan.isOpen()) {
                         abortPending(new ClosedChannelException());
                         return;
                     }
@@ -506,7 +506,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         void eventUpdated(AsyncEvent<T> e) throws ClosedChannelException {
             // if in this selector event loop thread
             if (Thread.currentThread() == this) {
-                SelectionKey key = e.getChan().getChannel().keyFor(selector);
+                SelectionKey key = e.getChan().keyFor(selector);
                 if (key != null && key.isValid()) {
                     SelectorAttachment<T> sa = (SelectorAttachment<T>) key.attachment();
                     sa.register(e);
@@ -532,7 +532,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         }
 
         public synchronized void cancel(T e) {
-            SelectionKey key = e.getChannel().keyFor(selector);
+            SelectionKey key = e.keyFor(selector);
             if (key != null) {
                 key.cancel();
             }
@@ -584,7 +584,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                             try {
                                 // Retrieves the key representing the channel's registration
                                 // with the given selector
-                                key = chan.getChannel().keyFor(selector);
+                                key = chan.keyFor(selector);
                                 SelectorAttachment<T> sa;
                                 if (key == null || !key.isValid()) {
                                     if (key != null) {
@@ -602,14 +602,14 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                                 // with interestop from event and SelectableChannel, Selector
                                 // from SelectorAttachment
                                 sa.register(event);
-                                if (!chan.getChannel().isOpen()) {
+                                if (!chan.isOpen()) {
                                     throw new IOException("Channel closed");
                                 }
                             } catch (IOException e) {
                                 if (logger.isDebugEnabled())
                                     logger.debug("Got {} while handling registration events",
                                             e.getClass().getName());
-                                chan.getChannel().close();
+                                chan.close();
                                 // let the event abort deal with it
                                 errorList.add(new Pair<>(event, e));
                                 if (key != null) {
@@ -702,7 +702,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     for (SelectionKey key : keys) {
                         SelectorAttachment<T> sa = (SelectorAttachment<T>) key.attachment();
                         if (!key.isValid()) {
-                            IOException ex = sa.getChan().getChannel().isOpen()
+                            IOException ex = sa.getChan().isOpen()
                                     ? new IOException("Invalid key")
                                     : new ClosedChannelException();
                             sa.getPending().forEach(e -> errorList.add(new Pair<>(e,ex)));
