@@ -76,7 +76,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     }
 
     protected final long id;
-    protected final SelectorManager<T> selmgr;
+    private final SelectorManager<T> selmgr;
     /** A Set of, deadline first, ordered timeout events. */
     private final TreeSet<TimeoutEvent> timeouts;
     private final boolean isDefaultExecutor;
@@ -205,7 +205,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     private long purgeTimeoutsAndReturnNextDeadline() {
         long diff = 0L;
         List<TimeoutEvent> toHandle = null;
-        int remaining = 0;
+        int remaining;
         // enter critical section to retrieve the timeout event to handle
         synchronized(this) {
             if (timeouts.isEmpty()) return 0L;
@@ -268,12 +268,13 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     public final static class DelegatingExecutor implements Executor {
         private final BooleanSupplier isInSelectorThread;
         private final Executor delegate;
-        public DelegatingExecutor(BooleanSupplier isInSelectorThread, Executor delegate) {
+
+        DelegatingExecutor(BooleanSupplier isInSelectorThread, Executor delegate) {
             this.isInSelectorThread = isInSelectorThread;
             this.delegate = delegate;
         }
 
-        public Executor delegate() {
+        Executor delegate() {
             return delegate;
         }
 
@@ -299,7 +300,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
      * by the SelectorManager thread. One of these objects required per
      * connection.
      */
-    protected static class SelectorAttachment<T extends Chan> {
+    static class SelectorAttachment<T extends Chan> {
         final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
 
         private final T chan;
@@ -418,7 +419,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             return pending;
         }
 
-        public int getInterestOps() {
+        int getInterestOps() {
             return interestOps;
         }
     }
@@ -432,7 +433,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         private final String namePrefix;
         private final AtomicInteger nextId = new AtomicInteger();
 
-        public DefaultThreadFactory(String name, long serverID) {
+        DefaultThreadFactory(String name, long serverID) {
             namePrefix = name + "-" + serverID + "-Worker-";
         }
 
@@ -502,7 +503,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         }
 
         @SuppressWarnings("unchecked")
-        public void eventUpdated(AsyncEvent<T> e) throws ClosedChannelException {
+        void eventUpdated(AsyncEvent<T> e) throws ClosedChannelException {
             // if in this selector event loop thread
             if (Thread.currentThread() == this) {
                 SelectionKey key = e.getChan().getChannel().keyFor(selector);
@@ -525,7 +526,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
         // This returns immediately. So caller not allowed to send/receive
         // on connection.
-        public synchronized void register(AsyncEvent<T> e) {
+        synchronized void register(AsyncEvent<T> e) {
             registrations.add(e);
             selector.wakeup();
         }
@@ -761,7 +762,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             }
         }
 
-        public Selector getSelector() {
+        Selector getSelector() {
             return selector;
         }
     }
@@ -794,7 +795,8 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     // should not appear more than ChanTube.MAX_BUFFERS
                     logger.debug("ByteBuffer.allocateDirect({})", CoreUtils.BUFSIZE);
                 }
-                assert count++ < POOL_SIZE : "trying to allocate more than "
+                count++;
+                assert count < POOL_SIZE : "trying to allocate more than "
                         + POOL_SIZE + " buffers";
                 buf = ByteBuffer.allocateDirect(CoreUtils.BUFSIZE);
             } else {
