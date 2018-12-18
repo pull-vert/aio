@@ -88,7 +88,7 @@ public abstract class TcpConnection implements Closeable {
     abstract boolean isSecure();
 
     /**
-     * Closes this connection, by returning the socket to its connection pool.
+     * Closes this connection, todo by returning the socket to its connection pool ?
      */
     @Override
     public abstract void close();
@@ -105,6 +105,21 @@ public abstract class TcpConnection implements Closeable {
      * if invoked before connecting.
      */
     abstract TcpPublisher getPublisher();
+
+    public static TcpConnection createConnection(InetSocketAddress addr,
+                                              TcpServerImpl server,
+                                              SocketChan chan,
+                                              boolean secure) {
+//        if (!secure) {
+            return createPlainConnection(addr, server, chan);
+//        } else {  // secure
+//            return createSSLConnection(addr, proxy, alpn, request, server);
+//        }
+    }
+
+    private static TcpConnection createPlainConnection(InetSocketAddress addr, TcpServerImpl server, SocketChan chan) {
+        return new PlainTcpConnection(addr, server, chan);
+    }
 
     /**
      * A getPublisher that makes it possible to publish (write) ordered (normal

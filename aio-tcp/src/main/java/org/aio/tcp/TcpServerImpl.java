@@ -50,7 +50,9 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.nio.channels.ServerSocketChannel;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -121,6 +123,8 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // the response has been fully received or the web socket is closed.
     private final AtomicLong pendingOperationCount = new AtomicLong();
 
+    private Set<TcpConnection> activeTcpConnections;
+
     /**
      * This is a bit tricky:
      * 1. a TcpServerFacade has a final TcpServerImpl field.
@@ -159,6 +163,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         }
         dbgTag = "TcpServerImpl(" + id +")";
         sslContext = builder.sslContext;
+        activeTcpConnections = new HashSet<>();
         facadeRef = new WeakReference<>(facadeFactory.createFacade(this));
         if (builder.sslParams == null) {
             if (builder.sslContext != null) {
@@ -233,7 +238,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
         private final Logger logger = LoggerFactory.getLogger(SocketChanManager.class);
 
-        private int tcpPort;
+        private InetSocketAddress inetSocketAddress;
         private ServerSocketChannel serverSocket;
         private TcpServerImpl owner;
 
@@ -241,7 +246,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
             super(null, null,
                     "TcpServer-" + ref.id + "-SocketChanManager",
                     0, false);
-            this.tcpPort = tcpPort;
+            this.inetSocketAddress = new InetSocketAddress(tcpPort);
             owner = ref;
         }
 
@@ -249,7 +254,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         public void run() {
             try {
                 serverSocket = ServerSocketChannel.open();
-                serverSocket.bind(new InetSocketAddress(tcpPort));
+                serverSocket.bind(inetSocketAddress);
             } catch (IOException e) {
                 // This terminates thread. So, better just print stack trace
                 String err = CoreUtils.stackTrace(e);
@@ -262,9 +267,10 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
             while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    SocketChan chan = new SocketChan(this.serverSocket.accept());
-                    if (logger.isDebugEnabled()) logger.debug("Socket accepted: {}", chan);
-                    // todo : create a TcpConnection
+                    SocketChan socketChan = new SocketChan(this.serverSocket.accept());
+                    if (logger.isDebugEnabled()) logger.debug("Socket accepted: {}", socketChan);
+                    TcpConnection tcpConnection = TcpConnection.createConnection(inetSocketAddress, owner, socketChan, false);
+                    owner.activeTcpConnections.add(tcpConnection);
 
                 } catch (IOException e) {
                     logger.warn("{}: {}: {}", getName(),

@@ -213,7 +213,7 @@ class PlainTcpConnection extends TcpConnection {
 
     /**
      * Create a TCP Connection without SSL
-     * Provided SocketChan must be opened or accepted before calling this constructor
+     * Provided SocketChan must be opened or accepted by ServerSocketChannel before calling this constructor
      *
      * @param addr
      * @param tcpServerOrClient
