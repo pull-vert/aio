@@ -39,20 +39,18 @@
 package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
-import org.aio.core.AsyncTriggerEvent;
-import org.aio.core.Chan;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectableChannel;
-import java.nio.channels.SelectionKey;
+import java.net.InetSocketAddress;
+import java.nio.channels.ServerSocketChannel;
 import java.util.Optional;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -69,8 +67,6 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     private static final AtomicLong TCP_SERVER_IDS = new AtomicLong();
 
     private final int port;
-    private final DelegatingExecutor delegatingExecutor;
-    private final boolean isDefaultExecutor;
     // Security parameters
     private final SSLContext sslContext;
     private final SSLParameters sslParams;
@@ -155,7 +151,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     }
 
     private TcpServerImpl(TcpServerBuilderImpl builder, SingleFacadeFactory facadeFactory) {
-        super(TCP_SERVER_IDS);
+        super(TCP_SERVER_IDS, builder);
         if (builder.port > 0) {
             port = builder.port;
         } else {
@@ -163,14 +159,6 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         }
         dbgTag = "TcpServerImpl(" + id +")";
         sslContext = builder.sslContext;
-        Executor ex = builder.executor;
-        if (ex == null) {
-            ex = Executors.newCachedThreadPool(new DefaultThreadFactory("TcpServer", id));
-            isDefaultExecutor = true;
-        } else {
-            isDefaultExecutor = false;
-        }
-        delegatingExecutor = new DelegatingExecutor(this::isSelectorThread, ex);
         facadeRef = new WeakReference<>(facadeFactory.createFacade(this));
         if (builder.sslParams == null) {
             if (builder.sslContext != null) {
@@ -204,38 +192,8 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     }
 
     @Override
-    public Optional<Executor> getExecutor() {
-        return isDefaultExecutor
-                ? Optional.empty()
-                : Optional.of(delegatingExecutor.delegate());
-    }
-
-    @Override
     protected BufferSupplier getSSLBufferSupplier() {
         return sslBufferSupplier;
-    }
-
-    // ServerOrClient methods
-
-    @Override
-    protected void registerEvent(AsyncEvent<SocketChan> exchange) {
-        selmgr.register(exchange);
-    }
-
-    @Override
-    protected void eventUpdated(AsyncEvent<SocketChan> event) throws ClosedChannelException {
-        assert !(event instanceof AsyncTriggerEvent);
-        selmgr.eventUpdated(event);
-    }
-
-    @Override
-    protected boolean isSelectorThread() {
-        return Thread.currentThread() == selmgr;
-    }
-
-    @Override
-    protected DelegatingExecutor theExecutor() {
-        return delegatingExecutor;
     }
 
     // Returns the facade that was returned to the application code.
@@ -252,9 +210,9 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // Called by the SelectorManager thread to figure out whether it's time
     // to terminate.
     @Override
-    protected final boolean isReferenced() {
+    protected final boolean isNotReferenced() {
         TcpServer facade = facade();
-        return facade != null || referenceCount() > 0;
+        return facade == null && referenceCount() == 0;
     }
 
     @Override
@@ -266,37 +224,55 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         return dbgTag;
     }
 
-    @Override
-    public String toString() {
-        // Used by tests to get the client's id and compute the
-        // name of the SelectorManager thread.
-        return super.toString() + ("(" + id + ")");
-    }
-
-    // used for the connection window
-    int getReceiveBufferSize() {
-        return CoreUtils.getIntegerNetProperty(
-                "aio.receiveBufferSize",
-                0 // only set the size if > 0
-        );
-    }
-
-    final String debugInterestOps(SocketChan channel) {
-        try {
-            SelectionKey key = channel.getChannel().keyFor(selmgr.getSelector());
-            if (key == null) return "channel not registered with selector";
-            String keyInterestOps = key.isValid()
-                    ? "key.interestOps=" + key.interestOps() : "invalid key";
-            return String.format("channel registered with selector, %s, sa.interestOps=%s",
-                    keyInterestOps,
-                    ((SelectorAttachment)key.attachment()).getInterestOps());
-        } catch (Throwable t) {
-            return String.valueOf(t);
-        }
-    }
-
     // Return all supported params
     private static SSLParameters getDefaultParams(SSLContext ctx) {
         return ctx.getSupportedSSLParameters();
+    }
+
+    public class SocketChanManager extends Thread {
+
+        private final Logger logger = LoggerFactory.getLogger(SocketChanManager.class);
+
+        private int tcpPort;
+        private ServerSocketChannel serverSocket;
+        private TcpServerImpl owner;
+
+        public SocketChanManager(int tcpPort, TcpServerImpl ref)  {
+            super(null, null,
+                    "TcpServer-" + ref.id + "-SocketChanManager",
+                    0, false);
+            this.tcpPort = tcpPort;
+            owner = ref;
+        }
+
+        @Override
+        public void run() {
+            try {
+                serverSocket = ServerSocketChannel.open();
+                serverSocket.bind(new InetSocketAddress(tcpPort));
+            } catch (IOException e) {
+                // This terminates thread. So, better just print stack trace
+                String err = CoreUtils.stackTrace(e);
+                logger.error("{}: {}: {}", getName(),
+                        "TcpServer shutting down due to fatal error on ServerSocketChannel init phase",
+                        err);
+                return;
+            }
+
+
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    SocketChan chan = new SocketChan(this.serverSocket.accept());
+                    if (logger.isDebugEnabled()) logger.debug("Socket accepted: {}", chan);
+                    // todo : create a TcpConnection
+
+                } catch (IOException e) {
+                    logger.warn("{}: {}: {}", getName(),
+                            "TcpServer error on accepting incoming connection", e);
+                }
+
+            }
+
+        }
     }
 }

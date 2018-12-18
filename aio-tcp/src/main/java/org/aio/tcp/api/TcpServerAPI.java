@@ -45,7 +45,6 @@ public interface TcpServerAPI extends ServerOrClientAPI {
 
     /**
      * A builder of {@link TcpServerAPI}.
-     *
      */
     public static interface Builder<T extends TcpServerAPI> extends ServerOrClientAPI.Builder<T> {
 

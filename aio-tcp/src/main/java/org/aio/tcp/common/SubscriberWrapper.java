@@ -38,6 +38,13 @@
 
 package org.aio.tcp.common;
 
+import org.aio.core.api.FlowTube;
+import org.aio.core.common.CoreUtils;
+import org.aio.core.util.concurrent.MinimalFuture;
+import org.aio.core.util.concurrent.SequentialScheduler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -48,13 +55,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-
-import org.aio.core.common.CoreUtils;
-import org.aio.core.api.FlowTube;
-import org.aio.core.util.concurrent.MinimalFuture;
-import org.aio.core.util.concurrent.SequentialScheduler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A wrapper for a Flow.Subscriber. This wrapper delivers data to the wrapped

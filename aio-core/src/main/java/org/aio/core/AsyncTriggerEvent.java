@@ -45,12 +45,14 @@ import java.util.function.Consumer;
 /**
  * An asynchronous event which is triggered only once from the selector manager
  * thread as soon as event registration are handled.
+ *
+ * It is not associated with a {@link Chan}
  */
 public final class AsyncTriggerEvent extends AsyncEvent{
 
     private final Runnable trigger;
     private final Consumer<? super IOException> errorHandler;
-    public AsyncTriggerEvent(Consumer<? super IOException> errorHandler,
+    AsyncTriggerEvent(Consumer<? super IOException> errorHandler,
                       Runnable trigger) {
         super(0);
         this.trigger = Objects.requireNonNull(trigger);

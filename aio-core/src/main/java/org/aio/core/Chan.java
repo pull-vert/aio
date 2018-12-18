@@ -39,4 +39,9 @@ public abstract class Chan<T extends SelectableChannel> implements ChanAPI {
      * @throws IOException a IO Exception that may occur during write operation
      */
     abstract protected long write(ByteBuffer[] srcs) throws IOException;
+
+    @Override
+    public String toString() {
+        return getChannel().toString();
+    }
 }

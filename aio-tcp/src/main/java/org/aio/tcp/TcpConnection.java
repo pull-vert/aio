@@ -56,16 +56,16 @@ import java.util.concurrent.Flow;
 
 public abstract class TcpConnection implements Closeable {
 
-    protected final InetSocketAddress address;
-    private final TcpServerImpl server;
+    private final InetSocketAddress address;
+    private final TcpServerOrClient tcpServerOrClient;
 
-    protected TcpConnection(InetSocketAddress address, TcpServerImpl server) {
+    TcpConnection(InetSocketAddress address, TcpServerOrClient tcpServerOrClient) {
         this.address = address;
-        this.server = server;
+        this.tcpServerOrClient = tcpServerOrClient;
     }
 
-    public TcpServerImpl getServer() {
-        return server;
+    TcpServerOrClient getServerOrClient() {
+        return tcpServerOrClient;
     }
 
     abstract SocketChan getChan();

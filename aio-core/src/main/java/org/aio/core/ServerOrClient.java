@@ -56,6 +56,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -66,14 +67,37 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
     private final Logger logger = LoggerFactory.getLogger(ServerOrClient.class);
 
+    public abstract static class Builder<U extends ServerOrClientAPI> implements ServerOrClientAPI.Builder<U> {
+        Executor executor;
+
+        protected void setExecutor(Executor executor) {
+            this.executor = executor;
+        }
+    }
+
     protected final long id;
     protected final SelectorManager<T> selmgr;
     /** A Set of, deadline first, ordered timeout events. */
     private final TreeSet<TimeoutEvent> timeouts;
+    private final boolean isDefaultExecutor;
+    private final DelegatingExecutor delegatingExecutor;
 
-    protected ServerOrClient(AtomicLong IDS) {
+    /**
+     * Constructor : create the SelectorManager
+     *
+     * @param IDS the atomic provider for ID
+     */
+    protected ServerOrClient(AtomicLong IDS, Builder builder) {
         timeouts = new TreeSet<>();
         id = IDS.incrementAndGet();
+        Executor ex = builder.executor;
+        if (ex == null) {
+            ex = Executors.newCachedThreadPool(new DefaultThreadFactory("TcpServer", id));
+            isDefaultExecutor = true;
+        } else {
+            isDefaultExecutor = false;
+        }
+        delegatingExecutor = new DelegatingExecutor(this::isSelectorThread, ex);
         try {
             selmgr = new SelectorManager<>(this);
         } catch (IOException e) {
@@ -81,6 +105,13 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             throw new UncheckedIOException(e);
         }
         selmgr.setDaemon(true);
+    }
+
+    @Override
+    public Optional<Executor> getExecutor() {
+        return isDefaultExecutor
+                ? Optional.empty()
+                : Optional.of(delegatingExecutor.delegate());
     }
 
     /**
@@ -93,19 +124,28 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
      *
      * If exchange needs to change interest ops, then call registerEvent() again.
      */
-    protected abstract void registerEvent(AsyncEvent<T> exchange);
+    void registerEvent(AsyncEvent<T> exchange) {
+        selmgr.register(exchange);
+    }
 
     /**
      * Allows an AsyncEvent to modify its getInterestOps.
      * @param event The modified event.
      */
-    protected abstract void eventUpdated(AsyncEvent<T> event) throws ClosedChannelException;
+    void eventUpdated(AsyncEvent<T> event) throws ClosedChannelException {
+        assert !(event instanceof AsyncTriggerEvent);
+        selmgr.eventUpdated(event);
+    }
 
-    protected abstract boolean isSelectorThread();
+    public boolean isSelectorThread() {
+        return Thread.currentThread() == selmgr;
+    }
 
-    protected abstract DelegatingExecutor theExecutor();
+    public final DelegatingExecutor theExecutor() {
+        return delegatingExecutor;
+    }
 
-    protected abstract boolean isReferenced();
+    protected abstract boolean isNotReferenced();
 
     // Timer controls.
     // Timers are implemented through timed Selector.select() calls.
@@ -116,12 +156,39 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         selmgr.wakeupSelector();
     }
 
-    public synchronized void cancelTimer(TimeoutEvent event) {
+    synchronized void cancelTimer(TimeoutEvent event) {
         if (logger.isTraceEnabled()) logger.trace("Canceling timer {}", event);
         timeouts.remove(event);
     }
 
-    // Internal methods
+    @Override
+    public String toString() {
+        // Used by tests to get the client or server 's id and compute the
+        // name of the SelectorManager thread.
+        return super.toString() + ("(" + id + ")");
+    }
+
+    public final String debugInterestOps(T channel) {
+        try {
+            SelectionKey key = channel.getChannel().keyFor(selmgr.getSelector());
+            if (key == null) return "channel not registered with selector";
+            String keyInterestOps = key.isValid()
+                    ? "key.interestOps=" + key.interestOps() : "invalid key";
+            return String.format("channel registered with selector, %s, sa.interestOps=%s",
+                    keyInterestOps,
+                    ((SelectorAttachment)key.attachment()).getInterestOps());
+        } catch (Throwable t) {
+            return String.valueOf(t);
+        }
+    }
+
+    // used for the connection window
+    public int getReceiveBufferSize() {
+        return CoreUtils.getIntegerNetProperty(
+                "aio.receiveBufferSize",
+                0 // only set the size if > 0
+        );
+    }
 
     protected void start() {
         selmgr.start();
@@ -246,6 +313,15 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             this.selector = selector;
         }
 
+        /**
+         * Register the {@link AsyncEvent} :
+         * 1) read {@link AsyncEvent}'s interestOps
+         * 2) add AsyncEvent to pending Set
+         * 3) if not already interested in this event, call
+         * {@link java.nio.channels.SelectableChannel#register(Selector, int, Object)}
+         *
+         * @param e The event
+         */
         void register(AsyncEvent<T> e) {
             int newOps = e.getInterestOps();
             // re register interest if we are not already interested
@@ -377,7 +453,9 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         }
     }
 
-    // Main loop for this server's selector
+    /**
+     * Main event loop for this client or server's {@link Selector}
+     */
     protected final static class SelectorManager<T extends Chan> extends Thread {
 
         final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
@@ -415,7 +493,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
         SelectorManager(ServerOrClient<T> ref) throws IOException {
             super(null, null,
-                    "TcpServer-" + ref.id + "-SelectorManager",
+                    "ServerOrClient-" + ref.id + "-SelectorManager",
                     0, false);
             owner = ref;
             registrations = new ArrayList<>();
@@ -425,6 +503,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
         @SuppressWarnings("unchecked")
         public void eventUpdated(AsyncEvent<T> e) throws ClosedChannelException {
+            // if in this selector event loop thread
             if (Thread.currentThread() == this) {
                 SelectionKey key = e.getChan().getChannel().keyFor(selector);
                 if (key != null && key.isValid()) {
@@ -559,7 +638,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
                     // Check whether serverOrClient is still alive, and if not,
                     // gracefully stop this thread
-                    if (!owner.isReferenced()) {
+                    if (owner.isNotReferenced()) {
                         if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                 getName(),
                                 "ServerOrClient no longer referenced. Exiting...");
@@ -606,7 +685,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     if (n == 0) {
                         // Check whether serverOrClient is still alive, and if not,
                         // gracefully stop this thread
-                        if (!owner.isReferenced()) {
+                        if (owner.isNotReferenced()) {
                             if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                     getName(),
                                     "ServerOrClient no longer referenced. Exiting...");
@@ -664,7 +743,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     // This terminates thread. So, better just print stack trace
                     String err = CoreUtils.stackTrace(e);
                     logger.error("{}: {}: {}", getName(),
-                            "TcpServerImpl shutting down due to fatal error", err);
+                            "ServerOrClient shutting down due to fatal error", err);
                 }
                 if (logger.isDebugEnabled()) logger.debug("shutting down", e);
             } finally {

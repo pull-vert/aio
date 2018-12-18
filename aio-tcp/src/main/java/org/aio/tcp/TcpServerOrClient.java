@@ -38,15 +38,15 @@
 
 package org.aio.tcp;
 
+import org.aio.core.ServerOrClient;
 import org.aio.core.api.ServerOrClientAPI;
 import org.aio.core.common.BufferSupplier;
-import org.aio.core.ServerOrClient;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class TcpServerOrClient extends ServerOrClient<SocketChan> implements ServerOrClientAPI {
-    public TcpServerOrClient(AtomicLong IDS) {
-        super(IDS);
+    TcpServerOrClient(AtomicLong IDS, ServerOrClient.Builder builder) {
+        super(IDS, builder);
     }
 
     // Optimization for reading SSL encrypted data
@@ -62,7 +62,4 @@ public abstract class TcpServerOrClient extends ServerOrClient<SocketChan> imple
     // then this BufferSupplier can be shared between all
     // the SSL connections managed by this client.
     protected abstract BufferSupplier getSSLBufferSupplier();
-
-    @Override
-    protected abstract boolean isSelectorThread();
 }

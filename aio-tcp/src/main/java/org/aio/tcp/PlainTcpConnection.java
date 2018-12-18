@@ -144,17 +144,17 @@ class PlainTcpConnection extends TcpConnection {
                     logger.debug("ConnectEvent: connect finished: {} Local addr: {}",
                               finished, socketChannel.getLocalAddress());
                 // complete async since the event runs on the SelectorManager thread
-                cf.completeAsync(() -> null, getServer().theExecutor());
+                cf.completeAsync(() -> null, getServerOrClient().theExecutor());
             } catch (Throwable e) {
                 Throwable t = CoreUtils.toConnectException(e);
-                getServer().theExecutor().execute( () -> cf.completeExceptionally(t));
+                getServerOrClient().theExecutor().execute( () -> cf.completeExceptionally(t));
                 close();
             }
         }
 
         @Override
         public void abort(IOException ioe) {
-            getServer().theExecutor().execute( () -> cf.completeExceptionally(ioe));
+            getServerOrClient().theExecutor().execute( () -> cf.completeExceptionally(ioe));
             close();
         }
     }
@@ -213,25 +213,25 @@ class PlainTcpConnection extends TcpConnection {
 
     /**
      * Create a TCP Connection without SSL
-     * Provided SocketChan must be opened before this
+     * Provided SocketChan must be opened or accepted before calling this constructor
      *
      * @param addr
-     * @param server
+     * @param tcpServerOrClient
      * @param chan
      */
-    PlainTcpConnection(InetSocketAddress addr, TcpServerImpl server, SocketChan chan) {
-        super(addr, server);
+    PlainTcpConnection(InetSocketAddress addr, TcpServerOrClient tcpServerOrClient, SocketChan chan) {
+        super(addr, tcpServerOrClient);
         try {
             this.chan = chan;
             chan.getChannel().configureBlocking(false);
-            trySetReceiveBufferSize(server.getReceiveBufferSize());
+            trySetReceiveBufferSize(tcpServerOrClient.getReceiveBufferSize());
             if (logger.isDebugEnabled()) {
                 int bufsize = getInitialBufferSize();
                 logger.debug("Initial receive buffer size is: {}", bufsize);
             }
             chan.getChannel().setOption(StandardSocketOptions.TCP_NODELAY, true);
             // wrap the channel in a Tube for async reading and writing
-            tube = new SocketChanTube(getServer(), chan, CoreUtils::getBuffer);
+            tube = new SocketChanTube(getServerOrClient(), chan, CoreUtils::getBuffer);
         } catch (IOException e) {
             throw new InternalError(e);
         }
@@ -292,9 +292,9 @@ class PlainTcpConnection extends TcpConnection {
         try {
             logger.trace("Closing: {}", toString());
             if (logger.isDebugEnabled())
-                logger.debug("Closing channel: " + getServer().debugInterestOps(chan));
+                logger.debug("Closing channel: " + getServerOrClient().debugInterestOps(chan));
 //            if (connectTimerEvent != null)
-//                getServer().cancelTimer(connectTimerEvent);
+//                getServerOrClient().cancelTimer(connectTimerEvent);
             chan.getChannel().close();
             tube.signalClosed();
         } catch (IOException e) {

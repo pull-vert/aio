@@ -38,6 +38,7 @@
 
 package org.aio.tcp;
 
+import org.aio.core.ServerOrClient;
 import org.aio.tcp.common.TcpUtils;
 
 import javax.net.ssl.SSLContext;
@@ -46,10 +47,9 @@ import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
 
-final class TcpServerBuilderImpl implements TcpServer.Builder {
+final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> implements TcpServer.Builder {
 
     int port;
-    Executor executor;
     // Security parameters
     SSLContext sslContext;
     SSLParameters sslParams;
@@ -80,7 +80,7 @@ final class TcpServerBuilderImpl implements TcpServer.Builder {
     @Override
     public TcpServerBuilderImpl executor(Executor s) {
         requireNonNull(s);
-        this.executor = s;
+        setExecutor(s);
         return this;
     }
 
