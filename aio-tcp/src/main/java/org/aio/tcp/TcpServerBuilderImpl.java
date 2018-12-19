@@ -55,14 +55,14 @@ final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> imple
     SSLParameters sslParams;
 
     @Override
-    public TcpServerBuilderImpl port(int port) {
+    public TcpServer.Builder port(int port) {
         assert port > 0 : "Port must be greater than 0";
         this.port = port;
         return this;
     }
 
     @Override
-    public TcpServerBuilderImpl sslContext(SSLContext sslContext) {
+    public TcpServer.Builder sslContext(SSLContext sslContext) {
         requireNonNull(sslContext);
         this.sslContext = sslContext;
         return this;
@@ -70,7 +70,7 @@ final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> imple
 
 
     @Override
-    public TcpServerBuilderImpl sslParameters(SSLParameters sslParameters) {
+    public TcpServer.Builder sslParameters(SSLParameters sslParameters) {
         requireNonNull(sslParameters);
         this.sslParams = TcpUtils.copySSLParameters(sslParameters);
         return this;
@@ -78,7 +78,7 @@ final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> imple
 
 
     @Override
-    public TcpServerBuilderImpl executor(Executor s) {
+    public TcpServer.Builder executor(Executor s) {
         requireNonNull(s);
         setExecutor(s);
         return this;

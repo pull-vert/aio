@@ -76,7 +76,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     }
 
     protected final long id;
-    private final SelectorManager<T> selmgr;
+    private final SelectorManager<T> selMgr;
     /** A Set of, deadline first, ordered timeout events. */
     private final TreeSet<TimeoutEvent> timeouts;
     private final boolean isDefaultExecutor;
@@ -99,12 +99,12 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         }
         delegatingExecutor = new DelegatingExecutor(this::isSelectorThread, ex);
         try {
-            selmgr = new SelectorManager<>(this);
+            selMgr = new SelectorManager<>(this);
         } catch (IOException e) {
             // unlikely
             throw new UncheckedIOException(e);
         }
-        selmgr.setDaemon(true);
+        selMgr.setDaemon(true);
     }
 
     @Override
@@ -125,7 +125,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
      * If exchange needs to change interest ops, then call registerEvent() again.
      */
     void registerEvent(AsyncEvent<T> exchange) {
-        selmgr.register(exchange);
+        selMgr.register(exchange);
     }
 
     /**
@@ -134,11 +134,11 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
      */
     void eventUpdated(AsyncEvent<T> event) throws ClosedChannelException {
         assert !(event instanceof AsyncTriggerEvent);
-        selmgr.eventUpdated(event);
+        selMgr.eventUpdated(event);
     }
 
     public boolean isSelectorThread() {
-        return Thread.currentThread() == selmgr;
+        return Thread.currentThread() == selMgr;
     }
 
     public final DelegatingExecutor theExecutor() {
@@ -153,7 +153,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     synchronized void registerTimer(TimeoutEvent event) {
         if (logger.isTraceEnabled()) logger.trace("Registering timer {}", event);
         timeouts.add(event);
-        selmgr.wakeupSelector();
+        selMgr.wakeupSelector();
     }
 
     synchronized void cancelTimer(TimeoutEvent event) {
@@ -170,7 +170,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
     public final String debugInterestOps(T channel) {
         try {
-            SelectionKey key = channel.keyFor(selmgr.getSelector());
+            SelectionKey key = channel.keyFor(selMgr.getSelector());
             if (key == null) return "channel not registered with selector";
             String keyInterestOps = key.isValid()
                     ? "key.interestOps=" + key.interestOps() : "invalid key";
@@ -190,8 +190,8 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         );
     }
 
-    protected void start() {
-        selmgr.start();
+    public void start() {
+        selMgr.start();
     }
 
     // Called from the SelectorManager thread, just before exiting.

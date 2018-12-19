@@ -124,6 +124,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     private final AtomicLong pendingOperationCount = new AtomicLong();
 
     private Set<TcpConnection> activeTcpConnections;
+    private final SocketChanManager socketChanMgr;
 
     /**
      * This is a bit tricky:
@@ -174,6 +175,8 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         } else {
             sslParams = builder.sslParams;
         }
+        socketChanMgr = new SocketChanManager(port, this);
+        socketChanMgr.setDaemon(true);
         assert facadeRef.get() != null;
     }
 
@@ -221,6 +224,14 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     }
 
     @Override
+    public void start() {
+        // start SelectorManager thread first
+        super.start();
+        // then start SocketChanManager thread
+        socketChanMgr.start();
+    }
+
+    @Override
     protected void stop() {
         // todo close connections
     }
@@ -244,8 +255,9 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         private InetSocketAddress inetSocketAddress;
         private ServerSocketChannel serverSocket;
         private TcpServerImpl owner;
+        private volatile boolean closed;
 
-        public SocketChanManager(int tcpPort, TcpServerImpl ref)  {
+        SocketChanManager(int tcpPort, TcpServerImpl ref) {
             super(null, null,
                     "TcpServer-" + ref.id + "-SocketChanManager",
                     0, false);
@@ -253,35 +265,57 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
             owner = ref;
         }
 
+        synchronized void shutdown() {
+            if (logger.isDebugEnabled()) logger.debug("{} : SocketChanManager shutting down", getName());
+            closed = true;
+            try {
+                serverSocket.close();
+            } catch (IOException ignored) {
+            } finally {
+                owner.stop();
+            }
+        }
+
         @Override
         public void run() {
             try {
-                serverSocket = ServerSocketChannel.open();
-                serverSocket.bind(inetSocketAddress);
-            } catch (IOException e) {
-                // This terminates thread. So, better just print stack trace
-                String err = CoreUtils.stackTrace(e);
-                logger.error("{}: {}: {}", getName(),
-                        "TcpServer shutting down due to fatal error on ServerSocketChannel init phase",
-                        err);
-                return;
-            }
-
-
-            while (!Thread.currentThread().isInterrupted()) {
                 try {
-                    SocketChan socketChan = new SocketChan(this.serverSocket.accept());
-                    if (logger.isDebugEnabled()) logger.debug("new Socket accepted: {}", socketChan);
-                    TcpConnection tcpConnection = TcpConnection.createConnection(inetSocketAddress, owner, socketChan, false);
-                    owner.activeTcpConnections.add(tcpConnection);
-
+                    serverSocket = ServerSocketChannel.open();
+                    serverSocket.bind(inetSocketAddress);
                 } catch (IOException e) {
-                    logger.warn("{}: {}: {}", getName(),
-                            "TcpServer error on accepting incoming connection", e);
+                    // This terminates thread. So, better just print stack trace
+                    String err = CoreUtils.stackTrace(e);
+                    logger.error("{}: {}: {}", getName(),
+                            "TcpServer shutting down due to fatal error on ServerSocketChannel init phase",
+                            err);
+                    return;
                 }
 
-            }
 
+                while (!Thread.currentThread().isInterrupted()) {
+                    try {
+                        SocketChan socketChan = new SocketChan(this.serverSocket.accept());
+                        if (logger.isDebugEnabled()) logger.debug("new Socket accepted: {}", socketChan);
+                        TcpConnection tcpConnection = TcpConnection.createConnection(inetSocketAddress, owner, socketChan, false);
+                        owner.activeTcpConnections.add(tcpConnection);
+
+                    } catch (IOException e) {
+                        logger.warn("{}: {}: {}", getName(),
+                                "TcpServer error on accepting incoming connection", e);
+                    }
+                }
+            } catch (Throwable e) {
+                if (!closed) {
+                    // This terminates thread. So, better just print stack trace
+                    String err = CoreUtils.stackTrace(e);
+                    logger.error("{}: {}: {}", getName(),
+                            "TcpServerImpl shutting down due to fatal error", err);
+                }
+                if (logger.isDebugEnabled()) logger.debug("shutting down", e);
+            } finally {
+                if (logger.isDebugEnabled()) logger.debug("{} : stopping", getName());
+                shutdown();
+            }
         }
     }
 }

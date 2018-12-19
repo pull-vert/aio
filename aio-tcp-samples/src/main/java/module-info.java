@@ -6,9 +6,7 @@
  * file that accompanied this code.
  */
 
-rootProject.name = 'aio'
-
-include 'aio-core'
-include 'aio-http2'
-include 'aio-tcp'
-include 'aio-tcp-samples'
+module aio.tcp.samples {
+    requires aio.core;
+    requires aio.tcp;
+}

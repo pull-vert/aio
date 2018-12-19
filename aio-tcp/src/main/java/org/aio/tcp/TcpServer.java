@@ -40,7 +40,30 @@ package org.aio.tcp;
 
 import org.aio.tcp.api.TcpServerAPI;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import java.util.concurrent.Executor;
+
 public interface TcpServer extends TcpServerAPI {
+
+    /**
+     * Returns a new {@code TcpServer} with default settings.
+     *
+     * <p> Equivalent to {@code newBuilder().build()}.
+     *
+     * <p> The default settings include: the 35700 default port.
+     *
+     * @implNote The system-wide default values are retrieved at the time the
+     * {@code TcpServer} instance is constructed. Changing the system-wide
+     * values after an {@code TcpServer} instance has been built, for
+     * instance, by calling {@link SSLContext#setDefault(SSLContext)},
+     * has no effect on already built instances.
+     *
+     * @return a new TcpServer
+     */
+    public static TcpServer newTcpServer() {
+        return newBuilder().build();
+    }
 
     public static Builder newBuilder() {
         return new TcpServerBuilderImpl();
@@ -54,5 +77,20 @@ public interface TcpServer extends TcpServerAPI {
      * and returns the same instance. Builders are not thread-safe and should not be
      * used concurrently from multiple threads without external synchronization.
      */
-    public static interface Builder extends TcpServerAPI.Builder<TcpServer> { }
+    public static interface Builder extends TcpServerAPI.Builder<TcpServer> {
+        @Override
+        Builder port(int port);
+
+        @Override
+        Builder executor(Executor executor);
+
+        @Override
+        Builder sslContext(SSLContext sslContext);
+
+        @Override
+        Builder sslParameters(SSLParameters sslParameters);
+
+        @Override
+        TcpServer build();
+    }
 }

@@ -6,4 +6,4 @@
  * file that accompanied this code.
  */
 
-ext.moduleName='org.pullvert.aio.core'
+ext.moduleName='aio.core'

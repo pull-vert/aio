@@ -6,7 +6,7 @@
  * file that accompanied this code.
  */
 
-ext.moduleName='org.pullvert.aio.tcp'
+ext.moduleName='aio.tcp'
 
 dependencies {
     implementation(project(':aio-core'))

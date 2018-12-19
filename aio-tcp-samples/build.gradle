@@ -6,9 +6,9 @@
  * file that accompanied this code.
  */
 
-rootProject.name = 'aio'
+ext.moduleName='aio.tcp.sample'
 
-include 'aio-core'
-include 'aio-http2'
-include 'aio-tcp'
-include 'aio-tcp-samples'
+dependencies {
+    implementation(project(':aio-core'))
+    implementation(project(':aio-tcp'))
+}

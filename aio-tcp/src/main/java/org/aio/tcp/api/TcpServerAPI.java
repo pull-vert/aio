@@ -66,4 +66,6 @@ public interface TcpServerAPI extends ServerOrClientAPI {
      * @return this server's TCP port
      */
     public int getPort();
+
+    public void start();
 }

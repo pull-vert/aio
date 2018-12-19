@@ -64,6 +64,11 @@ final class TcpServerFacade implements TcpServer {
     }
 
     @Override
+    public void start() {
+        impl.start();
+    }
+
+    @Override
     public  Optional<SSLContext> getSslContext() {
         return impl.getSslContext();
     }
