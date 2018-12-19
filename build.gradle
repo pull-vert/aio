@@ -6,6 +6,8 @@
  * file that accompanied this code.
  */
 
+println("Using Gradle version: $gradle.gradleVersion")
+
 group 'org.aio'
 version '0.1-SNAPSHOT'
 
@@ -40,6 +42,7 @@ subprojects {
             doFirst {
                 options.compilerArgs = [
                         '--module-path', classpath.asPath,
+                        '--patch-module', "$moduleName=" + files(sourceSets.main.resources.srcDirs).asPath,
                 ]
                 classpath = files()
             }

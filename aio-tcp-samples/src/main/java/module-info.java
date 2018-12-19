@@ -7,6 +7,7 @@
  */
 
 module aio.tcp.samples {
+    requires org.apache.logging.log4j;
     requires aio.core;
     requires aio.tcp;
 }
