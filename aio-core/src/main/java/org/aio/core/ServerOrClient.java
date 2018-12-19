@@ -190,7 +190,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         );
     }
 
-    public void start() {
+    protected void start() {
         logger.debug("starting SelectorManager thread");
         selMgr.start();
     }

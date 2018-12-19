@@ -228,7 +228,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     }
 
     @Override
-    public void start() {
+    protected void start() {
         // start SelectorManager thread first
         super.start();
         // then start SocketChanManager thread
