@@ -165,8 +165,8 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
             port = DEFAULT_PORT;
         }
         dbgTag = "TcpServerImpl(" + id +")";
-        if (logger.isDebugEnabled())
-            logger.debug("{} instanciated with port {}", dbgTag, port);
+        if (logger.isInfoEnabled())
+            logger.info("{} instanciated with port {}", dbgTag, port);
         sslContext = builder.sslContext;
         activeTcpConnections = new HashSet<>();
         facadeRef = new WeakReference<>(facadeFactory.createFacade(this));
