@@ -65,6 +65,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class TcpServerImpl extends TcpServerOrClient implements TcpServer {
 
+    private final Logger logger = LoggerFactory.getLogger(TcpServerImpl.class);
+
     public static final int DEFAULT_PORT = 35700;
     private static final AtomicLong TCP_SERVER_IDS = new AtomicLong();
 
@@ -163,6 +165,8 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
             port = DEFAULT_PORT;
         }
         dbgTag = "TcpServerImpl(" + id +")";
+        if (logger.isDebugEnabled())
+            logger.debug("{} instanciated with port {}", dbgTag, port);
         sslContext = builder.sslContext;
         activeTcpConnections = new HashSet<>();
         facadeRef = new WeakReference<>(facadeFactory.createFacade(this));
@@ -228,11 +232,12 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         // start SelectorManager thread first
         super.start();
         // then start SocketChanManager thread
+        logger.debug("starting SocketChannelManager thread");
         socketChanMgr.start();
     }
 
     @Override
-    protected void stop() {
+    public void stop() {
         // todo close connections
     }
 
