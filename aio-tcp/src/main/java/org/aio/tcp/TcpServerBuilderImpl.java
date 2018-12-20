@@ -91,7 +91,7 @@ final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> imple
     }
 
     @Override
-    public ServerOrClientAPI.PreStagesConfigurer configureStages() {
+    public ServerOrClientAPI.FirstStagesConfigurer configureStages() {
         return null; // todo create TcpServerPreStagesConfigurer(impl)
     }
 }

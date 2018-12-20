@@ -40,8 +40,6 @@ package org.aio.core.api;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
-import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
@@ -106,29 +104,31 @@ public interface ServerOrClientAPI {
          */
         public T build(); // todo remove when stages work
 
-        public PreStagesConfigurer configureStages();
+        public FirstStagesConfigurer configureStages();
     }
 
     /**
-     * Configure first {@linkplain ChanStages stage} of the Chan
+     * Configurer for first {@linkplain ChanStages stage} of the Chan
      *
      * @author Frédéric Montariol
      */
-    public static interface PreStagesConfigurer {
+    @FunctionalInterface
+    public static interface FirstStagesConfigurer {
 
         /**
-         * First stage in
-         * @param name
-         * @param chanEvtsHandler
-         * @param <T>
-         * @return
+         * Define first stage in {@linkplain ChanStages stage(s)} of the Chan
+         *
+         * @param name The unique name of the {@link ChanEvtsEmitter} associated with provided {@code chanEvtsHandler}
+         * @param chanEvtsHandler The first Event Handler to add to {@linkplain ChanStages stage(s)} of the Chan
+         * @return The {@link StagesConfigurer} that allows to configure next stage(s) and then build the server
+         * or client
          */
-        public <T extends ServerOrClientAPI> StagesConfigurer<T> stage1(
-                String name, ChanEvtsHandlerIn<List<ByteBuffer>> chanEvtsHandler);
+        public <T extends ServerOrClientAPI, U extends ChanEvtsHandler> StagesConfigurer<T> stage1(
+                String name, U chanEvtsHandler);
     }
 
     /**
-     * Configure next {@linkplain ChanStages stage(s)} of the Chan
+     * Configurer for next {@linkplain ChanStages stage(s)} of the Chan
      * <p>
      * Provide the {@link #build()} method that instanciate the server
      * or client
@@ -137,13 +137,20 @@ public interface ServerOrClientAPI {
      */
     public static interface StagesConfigurer<T extends ServerOrClientAPI> {
 
-        public StagesConfigurer<T> addLast(String name, ChanEvtsHandler chanEvtsHandler);
+        /**
+         * Add last stage to {@linkplain ChanStages stage(s)} of the Chan
+         *
+         * @param name The unique name of the {@link ChanEvtsEmitter} associated with provided {@code chanEvtsHandler}
+         * @param chanEvtsHandler The last Event Handler to add to {@linkplain ChanStages stage(s)} of the Chan
+         * @return this StagesConfigurer
+         */
+        public <U extends ChanEvtsHandler> StagesConfigurer<T> addLast(String name, U chanEvtsHandler);
 
         /**
          * Returns a new child of {@link ServerOrClientAPI} built from the
          * current state of this configurer.
          *
-         * @return a new child of TcpServerOrClient
+         * @return a new server or client
          */
         public T build();
     }
