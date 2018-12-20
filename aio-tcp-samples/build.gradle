@@ -23,15 +23,15 @@ dependencies {
 
 mainClassName = "org.aio.tcp.samples.TcpServerMain"
 
-run {
-    inputs.property("moduleName", moduleName)
-    println("$moduleName=" + files(sourceSets.main.output.resourcesDir).asPath)
-    doFirst {
-        jvmArgs = [
-                '--module-path', classpath.asPath,
-                '--patch-module', "$moduleName=" + files(sourceSets.main.output.resourcesDir).asPath,
-                '--module', "$moduleName/$mainClassName"
-        ]
-        classpath = files()
-    }
-}
+//run {
+//    inputs.property("moduleName", moduleName)
+//    println("$moduleName=" + files(sourceSets.main.output.resourcesDir).asPath)
+//    doFirst {
+//        jvmArgs = [
+//                '--module-path', classpath.asPath,
+//                '--patch-module', "$moduleName=" + files(sourceSets.main.output.resourcesDir).asPath,
+//                '--module', "$moduleName/$mainClassName"
+//        ]
+//        classpath = files()
+//    }
+//}

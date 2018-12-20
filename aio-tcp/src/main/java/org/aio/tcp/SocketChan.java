@@ -9,6 +9,8 @@
 package org.aio.tcp;
 
 import org.aio.core.Chan;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -22,6 +24,8 @@ import java.nio.channels.SocketChannel;
  */
 public final class SocketChan extends Chan<SocketChannel> {
 
+    private final Logger logger = LoggerFactory.getLogger(SocketChan.class);
+
     private SocketChannel socketChannel;
 
     SocketChan(SocketChannel socketChannel) {
@@ -31,11 +35,13 @@ public final class SocketChan extends Chan<SocketChannel> {
 
     @Override
     protected int read(ByteBuffer buf) throws IOException {
+        logger.debug("Reading");
         return socketChannel.read(buf);
     }
 
     @Override
     protected long write(ByteBuffer[] srcs) throws IOException {
+        logger.debug("Writing");
         return socketChannel.write(srcs);
     }
 

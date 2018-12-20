@@ -98,7 +98,6 @@ public interface FlowTube extends
      */
     default void connectFlows(TubePublisher writePublisher,
                               TubeSubscriber readSubscriber) {
-
         this.subscribe(readSubscriber);
         writePublisher.subscribe(this);
     }

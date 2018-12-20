@@ -41,6 +41,8 @@ package org.aio.tcp;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.api.FlowTube;
 import org.aio.core.ChanTube;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -48,20 +50,23 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * SocketChanTube is a ChanTube implementation is a terminal tube plugged directly into
- * the {@linkplain java.nio.channels.SocketChannel TCP Socket Channel}
+ * SocketChanTube is a ChanTube implementation. It is a terminal tube plugged directly
+ * into the {@linkplain java.nio.channels.SocketChannel TCP Socket Channel}
  * <br>
  * The read subscriber should call {@code subscribe} on the SocketChanTube before
  * the SocketChanTube is subscribed to the write getPublisher.
  */
 public class SocketChanTube extends ChanTube<SocketChan> {
 
+    private final Logger logger = LoggerFactory.getLogger(SocketChanTube.class);
+
     private final TcpServerOrClient tcpServerOrClient;
     private final SliceBufferSource sliceBuffersSource;
 
-    public SocketChanTube(TcpServerOrClient tcpServerOrClient, SocketChan socketChan,
+    SocketChanTube(TcpServerOrClient tcpServerOrClient, SocketChan socketChan,
                     Supplier<ByteBuffer> buffersFactory) {
         super(tcpServerOrClient, socketChan);
+        logger.debug("new SocketChanTube");
         this.tcpServerOrClient = tcpServerOrClient;
         this.sliceBuffersSource = new SliceBufferSource(buffersFactory);
     }
@@ -69,7 +74,7 @@ public class SocketChanTube extends ChanTube<SocketChan> {
     @Override
     protected ChanTube.BufferSource getBufferSource(FlowTube.TubeSubscriber subscriber) {
         return subscriber.supportsRecycling()
-                ? new SocketChanTube.SSLDirectBufferSource(tcpServerOrClient)
+                ? new SSLDirectBufferSource(tcpServerOrClient)
                 : sliceBuffersSource;
     }
 
@@ -82,7 +87,7 @@ public class SocketChanTube extends ChanTube<SocketChan> {
         private final TcpServerOrClient tcpServerOrClient;
         private ByteBuffer current;
 
-        public SSLDirectBufferSource(TcpServerOrClient tcpServerOrClient) {
+        SSLDirectBufferSource(TcpServerOrClient tcpServerOrClient) {
             this.tcpServerOrClient = Objects.requireNonNull(tcpServerOrClient);
             this.factory = Objects.requireNonNull(tcpServerOrClient.getSSLBufferSupplier());
         }

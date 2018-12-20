@@ -118,6 +118,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
      */
     @Override
     public void subscribe(Flow.Subscriber<? super List<ByteBuffer>> s) {
+        logger.debug("subscribed");
         Objects.requireNonNull(s);
         assert s instanceof TubeSubscriber : "Expected TubeSubscriber, got:" + s;
         readPublisher.subscribe(s);

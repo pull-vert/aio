@@ -650,8 +650,8 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                     // Timeouts will have milliseconds granularity. It is important
                     // to handle them in a timely fashion.
                     long nextTimeout = owner.purgeTimeoutsAndReturnNextDeadline();
-                    if (logger.isDebugEnabled())
-                        logger.debug("next timeout: {}", nextTimeout);
+                    if (logger.isTraceEnabled())
+                        logger.trace("Next timeout: {}", nextTimeout);
 
                     // Keep-alive have seconds granularity. It's not really an
                     // issue if we keep connections linger a bit more in the keep
@@ -679,8 +679,8 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
                     long millis = nextTimeout;
 
-                    if (logger.isDebugEnabled())
-                        logger.debug("Next deadline is {}",
+                    if (logger.isTraceEnabled())
+                        logger.trace("Next deadline is {}",
                                 (millis == 0 ? NODEADLINE : millis));
                     //debugPrint(selector);
                     int n = selector.select(millis == 0 ? NODEADLINE : millis);
