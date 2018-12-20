@@ -13,6 +13,9 @@ import org.aio.core.Chan;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+/**
+ * @author Frédéric Montariol
+ */
 public interface ChanEvtsEmitterOut<OUT> {
     public void startReceiving();
 
@@ -29,7 +32,6 @@ public interface ChanEvtsEmitterOut<OUT> {
 
     /**
      * Request to close the {@link Chan} and notify the {@link CompletionStage} once the operation completes
-     * @return
      */
     public CompletionStage<Void> closeChan();
 }

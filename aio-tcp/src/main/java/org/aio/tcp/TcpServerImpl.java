@@ -39,6 +39,7 @@
 package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
+import org.aio.core.api.ChanStages;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
 import org.slf4j.Logger;
@@ -201,6 +202,11 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     @Override
     public Optional<SSLParameters> getSslParameters() {
         return Optional.ofNullable(sslParams);
+    }
+
+    @Override
+    public ChanStages getStages() {
+        return null; // todo implement
     }
 
     @Override

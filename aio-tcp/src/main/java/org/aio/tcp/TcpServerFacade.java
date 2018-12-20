@@ -38,6 +38,8 @@
 
 package org.aio.tcp;
 
+import org.aio.core.api.ChanStages;
+
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import java.util.Optional;
@@ -76,6 +78,11 @@ final class TcpServerFacade implements TcpServer {
     @Override
     public Optional<Executor> getExecutor() {
         return impl.getExecutor();
+    }
+
+    @Override
+    public ChanStages getStages() {
+        return impl.getStages();
     }
 
     @Override

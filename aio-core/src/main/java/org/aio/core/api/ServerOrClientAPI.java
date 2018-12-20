@@ -40,6 +40,8 @@ package org.aio.core.api;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
@@ -47,6 +49,7 @@ public interface ServerOrClientAPI {
 
     /**
      * A builder of {@link ServerOrClientAPI}.
+     * todo remove generic parameter
      */
     public static interface Builder<T extends ServerOrClientAPI> {
 
@@ -101,6 +104,47 @@ public interface ServerOrClientAPI {
          *
          * @return a new child of TcpServerOrClient
          */
+        public T build(); // todo remove when stages work
+
+        public PreStagesConfigurer configureStages();
+    }
+
+    /**
+     * Configure first {@linkplain ChanStages stage} of the Chan
+     *
+     * @author Frédéric Montariol
+     */
+    public static interface PreStagesConfigurer {
+
+        /**
+         * First stage in
+         * @param name
+         * @param chanEvtsHandler
+         * @param <T>
+         * @return
+         */
+        public <T extends ServerOrClientAPI> StagesConfigurer<T> stage1(
+                String name, ChanEvtsHandlerIn<List<ByteBuffer>> chanEvtsHandler);
+    }
+
+    /**
+     * Configure next {@linkplain ChanStages stage(s)} of the Chan
+     * <p>
+     * Provide the {@link #build()} method that instanciate the server
+     * or client
+     *
+     * @author Frédéric Montariol
+     */
+    public static interface StagesConfigurer<T extends ServerOrClientAPI> {
+
+        public StagesConfigurer<T> addLast(String name, ChanEvtsHandler chanEvtsHandler);
+
+        /**
+         * Returns a new child of {@link ServerOrClientAPI} built from the
+         * current state of this configurer.
+         *
+         * @return a new child of TcpServerOrClient
+         */
         public T build();
     }
 
@@ -138,4 +182,6 @@ public interface ServerOrClientAPI {
      * {@code SSLParameters}
      */
     public Optional<SSLParameters> getSslParameters();
+
+    public ChanStages getStages();
 }

@@ -39,6 +39,7 @@
 package org.aio.tcp;
 
 import org.aio.core.ServerOrClient;
+import org.aio.core.api.ServerOrClientAPI;
 import org.aio.tcp.common.TcpUtils;
 
 import javax.net.ssl.SSLContext;
@@ -87,5 +88,10 @@ final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> imple
     @Override
     public TcpServer build() {
         return TcpServerImpl.create(this);
+    }
+
+    @Override
+    public ServerOrClientAPI.PreStagesConfigurer configureStages() {
+        return null; // todo create TcpServerPreStagesConfigurer(impl)
     }
 }

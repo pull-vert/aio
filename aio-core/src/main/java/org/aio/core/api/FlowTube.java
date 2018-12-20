@@ -66,7 +66,7 @@ public interface FlowTube extends
      * Once {@code dropSubscription()} is called, the {@code TubeSubscriber}
      * should stop calling any method on its subscription.
      */
-    static interface TubeSubscriber extends Flow.Subscriber<List<ByteBuffer>> {
+    public static interface TubeSubscriber extends Flow.Subscriber<List<ByteBuffer>> {
 
         /**
          * Called when the flow is connected again, and the subscription
@@ -74,16 +74,16 @@ public interface FlowTube extends
          * Once {@code dropSubscription()} is called, the {@code TubeSubscriber}
          * should stop calling any method on its subscription.
          */
-        default void dropSubscription() { }
+        public default void dropSubscription() { }
 
-        default boolean supportsRecycling() { return false; }
+        public default boolean supportsRecycling() { return false; }
 
     }
 
     /**
      * A publisher for writing to the bidirectional flow.
      */
-    static interface TubePublisher extends Flow.Publisher<List<ByteBuffer>> {
+    public static interface TubePublisher extends Flow.Publisher<List<ByteBuffer>> {
 
     }
 
@@ -96,7 +96,7 @@ public interface FlowTube extends
      * @param readSubscriber A new subscriber for reading from the bidirectional
      *                       flow.
      */
-    default void connectFlows(TubePublisher writePublisher,
+    public default void connectFlows(TubePublisher writePublisher,
                               TubeSubscriber readSubscriber) {
         this.subscribe(readSubscriber);
         writePublisher.subscribe(this);
@@ -107,7 +107,7 @@ public interface FlowTube extends
      * or normally (EOF reached).
      * @return true if the flow is finished
      */
-    boolean isFinished();
+    public boolean isFinished();
 
 
     /**
@@ -122,7 +122,7 @@ public interface FlowTube extends
      *           {@code TubeSubscriber}, otherwise a {@code TubeSubscriber}
      *           wrapper that delegates to {@code s}
      */
-    static TubeSubscriber asTubeSubscriber(Flow.Subscriber<? super List<ByteBuffer>> s) {
+    public static TubeSubscriber asTubeSubscriber(Flow.Subscriber<? super List<ByteBuffer>> s) {
         if (s instanceof TubeSubscriber) {
             return (TubeSubscriber) s;
         }
@@ -138,7 +138,7 @@ public interface FlowTube extends
      *           {@code  TubePublisher}, otherwise a {@code TubePublisher}
      *           wrapper that delegates to {@code s}
      */
-    static TubePublisher asTubePublisher(Flow.Publisher<List<ByteBuffer>> p) {
+    public static TubePublisher asTubePublisher(Flow.Publisher<List<ByteBuffer>> p) {
         if (p instanceof TubePublisher) {
             return (TubePublisher) p;
         }
@@ -150,10 +150,10 @@ public interface FlowTube extends
      * It is not required that a {@code TubePublisher} implementation extends
      * this class.
      */
-    static abstract class AbstractTubePublisher implements TubePublisher {
+    public static abstract class AbstractTubePublisher implements TubePublisher {
         static final class TubePublisherWrapper extends AbstractTubePublisher {
             final Flow.Publisher<List<ByteBuffer>> delegate;
-            public TubePublisherWrapper(Flow.Publisher<List<ByteBuffer>> delegate) {
+            TubePublisherWrapper(Flow.Publisher<List<ByteBuffer>> delegate) {
                 this.delegate = delegate;
             }
             @Override
@@ -168,9 +168,9 @@ public interface FlowTube extends
      * It is not required that a {@code TubeSubscriber} implementation extends
      * this class.
      */
-    static abstract class AbstractTubeSubscriber implements TubeSubscriber {
+    public static abstract class AbstractTubeSubscriber implements TubeSubscriber {
         static final class TubeSubscriberWrapper extends  AbstractTubeSubscriber {
-            final Flow.Subscriber<? super List<ByteBuffer>> delegate;
+            private final Flow.Subscriber<? super List<ByteBuffer>> delegate;
             TubeSubscriberWrapper(Flow.Subscriber<? super List<ByteBuffer>> delegate) {
                 this.delegate = delegate;
             }
