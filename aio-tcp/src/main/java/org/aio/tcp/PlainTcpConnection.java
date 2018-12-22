@@ -38,7 +38,6 @@
 
 package org.aio.tcp;
 
-import org.aio.core.AsyncEvent;
 import org.aio.core.api.FlowTube;
 import org.aio.core.common.CoreUtils;
 import org.aio.core.util.concurrent.MinimalFuture;
@@ -48,7 +47,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
-import java.nio.channels.SelectionKey;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -111,52 +109,52 @@ class PlainTcpConnection extends TcpConnection {
 //            return "ConnectTimerEvent, " + super.toString();
 //        }
 //    }
-
-    final class ConnectEvent extends AsyncEvent {
-        private final CompletableFuture<Void> cf;
-
-        ConnectEvent(CompletableFuture<Void> cf) {
-            this.cf = cf;
-        }
-
-        @Override
-        public SocketChan getChan() {
-            return socketChan;
-        }
-
-        @Override
-        public int getInterestOps() {
-            return SelectionKey.OP_CONNECT;
-        }
-
-        @Override
-        public void handle() {
-            try {
-                assert !connected : "Already connected";
-                assert !socketChan.isBlocking() : "Unexpected blocking channel";
-                if (logger.isDebugEnabled())
-                    logger.debug("ConnectEvent: finishing connect");
-                boolean finished = socketChan.finishConnect();
-                assert finished : "Expected channel to be connected";
-                if (logger.isDebugEnabled())
-                    logger.debug("ConnectEvent: connect finished: {} Local addr: {}",
-                              finished, socketChan.getLocalAddress());
-                // complete async since the event runs on the SelectorManager thread
-                cf.completeAsync(() -> null, getServerOrClient().theExecutor());
-            } catch (Throwable e) {
-                Throwable t = CoreUtils.toConnectException(e);
-                getServerOrClient().theExecutor().execute( () -> cf.completeExceptionally(t));
-                close();
-            }
-        }
-
-        @Override
-        public void abort(IOException ioe) {
-            getServerOrClient().theExecutor().execute( () -> cf.completeExceptionally(ioe));
-            close();
-        }
-    }
-
+//
+//    final class ConnectEvent extends AsyncEvent {
+//        private final CompletableFuture<Void> cf;
+//
+//        ConnectEvent(CompletableFuture<Void> cf) {
+//            this.cf = cf;
+//        }
+//
+//        @Override
+//        public SocketChan getChan() {
+//            return socketChan;
+//        }
+//
+//        @Override
+//        public int getInterestOps() {
+//            return SelectionKey.OP_CONNECT;
+//        }
+//
+//        @Override
+//        public void handle() {
+//            try {
+//                assert !connected : "Already connected";
+//                assert !socketChan.isBlocking() : "Unexpected blocking channel";
+//                if (logger.isDebugEnabled())
+//                    logger.debug("ConnectEvent: finishing connect");
+//                boolean finished = socketChan.finishConnect();
+//                assert finished : "Expected channel to be connected";
+//                if (logger.isDebugEnabled())
+//                    logger.debug("ConnectEvent: connect finished: {} Local addr: {}",
+//                              finished, socketChan.getLocalAddress());
+//                // complete async since the event runs on the SelectorManager thread
+//                cf.completeAsync(() -> null, getServerOrClient().theExecutor());
+//            } catch (Throwable e) {
+//                Throwable t = CoreUtils.toConnectException(e);
+//                getServerOrClient().theExecutor().execute( () -> cf.completeExceptionally(t));
+//                close();
+//            }
+//        }
+//
+//        @Override
+//        public void abort(IOException ioe) {
+//            getServerOrClient().theExecutor().execute( () -> cf.completeExceptionally(ioe));
+//            close();
+//        }
+//    }
+//
 //    @Override
 //    public CompletableFuture<Void> connectAsync(Exchange<?> exchange) {
 //        CompletableFuture<Void> cf = new MinimalFuture<>();

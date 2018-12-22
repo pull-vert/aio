@@ -15,4 +15,6 @@ import java.util.Map;
  */
 public interface ChanStages extends Iterable<Map.Entry<String, ChanEvtsHandler>> {
     public void stage1(String name, ChanEvtsHandler evtsHandler);
+
+    public void addLast(String name, ChanEvtsHandler evtsHandler);
 }

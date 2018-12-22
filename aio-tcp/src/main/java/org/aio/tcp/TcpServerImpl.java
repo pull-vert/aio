@@ -39,7 +39,7 @@
 package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
-import org.aio.core.api.ChanStages;
+import org.aio.core.ChanStagesImpl;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
 import org.slf4j.Logger;
@@ -126,7 +126,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // the response has been fully received or the web socket is closed.
     private final AtomicLong pendingOperationCount = new AtomicLong();
 
-    private Set<TcpConnection> activeTcpConnections;
+    private final Set<TcpConnection> activeTcpConnections;
     private final SocketChanManager socketChanMgr;
 
     /**
@@ -149,17 +149,17 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         }
     }
 
-    static TcpServerFacade create(TcpServerBuilderImpl builder) {
+    static TcpServerFacade create(TcpServerBuilderImpl builder, ChanStagesImpl chanStages) {
         SingleFacadeFactory facadeFactory = new SingleFacadeFactory();
-        TcpServerImpl impl = new TcpServerImpl(builder, facadeFactory);
+        TcpServerImpl impl = new TcpServerImpl(builder, facadeFactory, chanStages);
         impl.start();
         assert facadeFactory.facade != null;
         assert impl.facadeRef.get() == facadeFactory.facade;
         return facadeFactory.facade;
     }
 
-    private TcpServerImpl(TcpServerBuilderImpl builder, SingleFacadeFactory facadeFactory) {
-        super(TCP_SERVER_IDS, builder);
+    private TcpServerImpl(TcpServerBuilderImpl builder, SingleFacadeFactory facadeFactory, ChanStagesImpl chanStages) {
+        super(TCP_SERVER_IDS, builder, chanStages);
         if (builder.port > 0) {
             port = builder.port;
         } else {
@@ -202,11 +202,6 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     @Override
     public Optional<SSLParameters> getSslParameters() {
         return Optional.ofNullable(sslParams);
-    }
-
-    @Override
-    public ChanStages getStages() {
-        return null; // todo implement
     }
 
     @Override

@@ -48,7 +48,7 @@ import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
 
-final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> implements TcpServer.Builder {
+final class TcpServerBuilderImpl extends ServerOrClient.Builder implements TcpServer.Builder {
 
     int port;
     // Security parameters
@@ -86,12 +86,7 @@ final class TcpServerBuilderImpl extends ServerOrClient.Builder<TcpServer> imple
     }
 
     @Override
-    public TcpServer build() {
-        return TcpServerImpl.create(this);
-    }
-
-    @Override
-    public ServerOrClientAPI.FirstStagesConfigurer configureStages() {
+    public TcpServer.FirstStagesConfigurer configureStages() {
         return null; // todo create TcpServerPreStagesConfigurer(impl)
     }
 }

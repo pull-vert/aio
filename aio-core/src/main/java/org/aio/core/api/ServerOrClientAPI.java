@@ -47,14 +47,13 @@ public interface ServerOrClientAPI {
 
     /**
      * A builder of {@link ServerOrClientAPI}.
-     * todo remove generic parameter
      */
-    public static interface Builder<T extends ServerOrClientAPI> {
+    public static interface Builder {
 
         /**
          * Sets the executor to be used for asynchronous and dependent tasks.
          *
-         * <p> If this method is not invoked prior to {@linkplain #build()
+         * <p> If this method is not invoked prior to {@linkplain #configureStages()
          * building}, a default executor is used
          *
          * @implNote The default executor uses a thread pool, with a custom
@@ -70,7 +69,7 @@ public interface ServerOrClientAPI {
         /**
          * Sets an {@code SSLContext}.
          *
-         * <p> If this method is not invoked prior to {@linkplain #build()
+         * <p> If this method is not invoked prior to {@linkplain #configureStages()
          * building}, connection will not use SSL.
          *
          * @param sslContext the SSLContext
@@ -81,7 +80,7 @@ public interface ServerOrClientAPI {
         /**
          * Sets an {@code SSLParameters}.
          *
-         * <p> If this method is not invoked prior to {@linkplain #build()
+         * <p> If this method is not invoked prior to {@linkplain #configureStages()
          * building}, and if {@linkplain #sslContext(SSLContext) SSL Context}
          * was called, then newly built client or server will use a default,
          * implementation specific, set of parameters.
@@ -95,14 +94,6 @@ public interface ServerOrClientAPI {
          * @return this builder
          */
         public Builder sslParameters(SSLParameters sslParameters);
-
-        /**
-         * Returns a new child of {@link ServerOrClientAPI} built from the
-         * current state of this builder.
-         *
-         * @return a new child of TcpServerOrClient
-         */
-        public T build(); // todo remove when stages work
 
         public FirstStagesConfigurer configureStages();
     }
@@ -123,7 +114,7 @@ public interface ServerOrClientAPI {
          * @return The {@link StagesConfigurer} that allows to configure next stage(s) and then build the server
          * or client
          */
-        public <T extends ServerOrClientAPI, U extends ChanEvtsHandler> StagesConfigurer<T> stage1(
+        public <U extends ChanEvtsHandler> StagesConfigurer stage1(
                 String name, U chanEvtsHandler);
     }
 
@@ -135,7 +126,7 @@ public interface ServerOrClientAPI {
      *
      * @author Frédéric Montariol
      */
-    public static interface StagesConfigurer<T extends ServerOrClientAPI> {
+    public static interface StagesConfigurer {
 
         /**
          * Add last stage to {@linkplain ChanStages stage(s)} of the Chan
@@ -144,15 +135,15 @@ public interface ServerOrClientAPI {
          * @param chanEvtsHandler The last Event Handler to add to {@linkplain ChanStages stage(s)} of the Chan
          * @return this StagesConfigurer
          */
-        public <U extends ChanEvtsHandler> StagesConfigurer<T> addLast(String name, U chanEvtsHandler);
+        public <U extends ChanEvtsHandler> StagesConfigurer addLast(String name, U chanEvtsHandler);
 
         /**
-         * Returns a new child of {@link ServerOrClientAPI} built from the
+         * Returns a new {@link ServerOrClientAPI} built from the
          * current state of this configurer.
          *
          * @return a new server or client
          */
-        public T build();
+        public ServerOrClientAPI build();
     }
 
     /**

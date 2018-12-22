@@ -38,6 +38,8 @@
 
 package org.aio.tcp;
 
+import org.aio.core.api.ChanEvtsHandler;
+import org.aio.core.api.ServerOrClientAPI;
 import org.aio.tcp.api.TcpServerAPI;
 
 import javax.net.ssl.SSLContext;
@@ -61,8 +63,8 @@ public interface TcpServer extends TcpServerAPI {
      *
      * @return a new TcpServer
      */
-    public static TcpServer newTcpServer() {
-        return newBuilder().build();
+    public static FirstStagesConfigurer newStageConfigurer() {
+        return newBuilder().configureStages();
     }
 
     public static Builder newBuilder() {
@@ -77,7 +79,7 @@ public interface TcpServer extends TcpServerAPI {
      * and returns the same instance. Builders are not thread-safe and should not be
      * used concurrently from multiple threads without external synchronization.
      */
-    public static interface Builder extends TcpServerAPI.Builder<TcpServer> {
+    public static interface Builder extends TcpServerAPI.Builder {
         @Override
         Builder port(int port);
 
@@ -89,6 +91,19 @@ public interface TcpServer extends TcpServerAPI {
 
         @Override
         Builder sslParameters(SSLParameters sslParameters);
+
+        @Override
+        FirstStagesConfigurer configureStages();
+    }
+
+    public static interface FirstStagesConfigurer extends ServerOrClientAPI.FirstStagesConfigurer {
+        @Override
+        <U extends ChanEvtsHandler> StagesConfigurer stage1(String name, U chanEvtsHandler);
+    }
+
+    public static interface StagesConfigurer extends ServerOrClientAPI.StagesConfigurer {
+        @Override
+        <U extends ChanEvtsHandler> ServerOrClientAPI.StagesConfigurer addLast(String name, U chanEvtsHandler);
 
         @Override
         TcpServer build();

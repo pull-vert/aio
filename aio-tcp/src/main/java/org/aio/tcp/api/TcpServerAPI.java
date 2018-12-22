@@ -46,7 +46,7 @@ public interface TcpServerAPI extends ServerOrClientAPI {
     /**
      * A builder of {@link TcpServerAPI}.
      */
-    public static interface Builder<T extends TcpServerAPI> extends ServerOrClientAPI.Builder<T> {
+    public static interface Builder extends ServerOrClientAPI.Builder {
 
         /**
          * Sets the TCP port for TcpServer

@@ -38,6 +38,8 @@
 
 package org.aio.core;
 
+import org.aio.core.api.ChanEvtsHandler;
+import org.aio.core.api.ChanStages;
 import org.aio.core.api.ServerOrClientAPI;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
@@ -67,11 +69,28 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
 
     private final Logger logger = LoggerFactory.getLogger(ServerOrClient.class);
 
-    public abstract static class Builder<U extends ServerOrClientAPI> implements ServerOrClientAPI.Builder<U> {
+    public abstract static class Builder implements ServerOrClientAPI.Builder {
         Executor executor;
 
         protected void setExecutor(Executor executor) {
             this.executor = executor;
+        }
+    }
+
+    /**
+     * @author Frédéric Montariol
+     */
+    public abstract static class StagesConfigurer implements ServerOrClientAPI.StagesConfigurer {
+
+        protected final ChanStagesImpl chanStages;
+
+        public <U extends ChanEvtsHandler> StagesConfigurer(String name, U chanEvtsHandler) {
+            chanStages = new ChanStagesImpl();
+            chanStages.stage1(name, chanEvtsHandler);
+        }
+
+        protected <U extends ChanEvtsHandler> void setLast(String name, U chanEvtsHandler) {
+            chanStages.addLast(name, chanEvtsHandler);
         }
     }
 
@@ -81,13 +100,14 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     private final TreeSet<TimeoutEvent> timeouts;
     private final boolean isDefaultExecutor;
     private final DelegatingExecutor delegatingExecutor;
+    private final ChanStagesImpl chanStages;
 
     /**
      * Constructor : create the SelectorManager
      *
      * @param IDS the atomic provider for ID
      */
-    protected ServerOrClient(AtomicLong IDS, Builder builder) {
+    protected ServerOrClient(AtomicLong IDS, Builder builder, ChanStagesImpl chanStages) {
         timeouts = new TreeSet<>();
         id = IDS.incrementAndGet();
         Executor ex = builder.executor;
@@ -105,6 +125,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
             throw new UncheckedIOException(e);
         }
         selMgr.setDaemon(true);
+        this.chanStages = chanStages;
     }
 
     @Override
@@ -112,6 +133,11 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         return isDefaultExecutor
                 ? Optional.empty()
                 : Optional.of(delegatingExecutor.delegate());
+    }
+
+    @Override
+    public ChanStages getStages() {
+        return chanStages;
     }
 
     /**
