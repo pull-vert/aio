@@ -40,6 +40,7 @@ package org.aio.tcp;
 
 import org.aio.core.AsyncEvent;
 import org.aio.core.ChanStagesImpl;
+import org.aio.core.api.FlowTube;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
 import org.slf4j.Logger;
@@ -51,9 +52,9 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.nio.channels.ServerSocketChannel;
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -126,7 +127,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // the response has been fully received or the web socket is closed.
     private final AtomicLong pendingOperationCount = new AtomicLong();
 
-    private final Set<TcpConnection> activeTcpConnections;
+    private final Set<TcpConnection> connections = ConcurrentHashMap.newKeySet();
     private final SocketChanManager socketChanMgr;
 
     /**
@@ -169,7 +170,6 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         if (logger.isInfoEnabled())
             logger.info("{} instanciated with port {}", dbgTag, port);
         sslContext = builder.sslContext;
-        activeTcpConnections = new HashSet<>();
         facadeRef = new WeakReference<>(facadeFactory.createFacade(this));
         if (builder.sslParams == null) {
             if (builder.sslContext != null) {
@@ -242,6 +242,17 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         // todo close connections
     }
 
+    @Override
+    protected void deleteConnection(TcpConnection tcpConnection) {
+        if (logger.isDebugEnabled())
+            logger.debug("removing from the connections: {}", tcpConnection);
+        synchronized (this) {
+            connections.remove(tcpConnection);
+            if (logger.isDebugEnabled())
+                logger.debug("removed from the connection pool: {}", tcpConnection);
+        }
+    }
+
     String dbgString() {
         return dbgTag;
     }
@@ -249,6 +260,29 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // Return all supported params
     private static SSLParameters getDefaultParams(SSLContext ctx) {
         return ctx.getSupportedSSLParameters();
+    }
+
+    @Override
+    protected boolean offerConnection(TcpConnection tcpConnection) {
+        if (logger.isDebugEnabled()) logger.debug("opened a new connection : {}", tcpConnection);
+        if (tcpConnection.closed) {
+            if (logger.isDebugEnabled())
+                logger.debug("skipping offered closed or closing connection: {}", tcpConnection);
+            return false;
+        }
+
+        synchronized(this) {
+            connections.add(tcpConnection);
+            if (logger.isDebugEnabled())
+                logger.debug("added a new connection : {}", tcpConnection);
+            return true;
+        }
+    }
+
+    private void connectFlows(TcpConnection tcpConnection) {
+        FlowTube tube =  tcpConnection.getConnectionFlow();
+        // Connect the flow to our TcpTubeSubscriber:
+        tube.connectFlows(tcpConnection.getPublisher(), tcpConnection.getSubscriber());
     }
 
     /**
@@ -303,7 +337,10 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
                         SocketChan socketChan = new SocketChan(this.serverSocket.accept());
                         if (logger.isDebugEnabled()) logger.debug("new Socket accepted: {}", socketChan);
                         TcpConnection tcpConnection = TcpConnection.createConnection(inetSocketAddress, owner, socketChan, false);
-                        owner.activeTcpConnections.add(tcpConnection);
+                        offerConnection(tcpConnection);
+                        owner.connections.add(tcpConnection);
+                        // safe to start async reading now.
+                        connectFlows(tcpConnection);
 
                     } catch (IOException e) {
                         logger.warn("{}: {}: {}", getName(),

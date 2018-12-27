@@ -51,7 +51,7 @@ public interface TcpServer extends TcpServerAPI {
     /**
      * Returns a new {@code TcpServer} with default settings.
      *
-     * <p> Equivalent to {@code newBuilder().build()}.
+     * <p> Equivalent to {@code newBuilder().configureStages()}.
      *
      * <p> The default settings include: the 35700 default port.
      *
@@ -61,7 +61,7 @@ public interface TcpServer extends TcpServerAPI {
      * instance, by calling {@link SSLContext#setDefault(SSLContext)},
      * has no effect on already built instances.
      *
-     * @return a new TcpServer
+     * @return a new FirstStagesConfigurer
      */
     public static FirstStagesConfigurer newStageConfigurer() {
         return newBuilder().configureStages();

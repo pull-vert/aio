@@ -63,4 +63,8 @@ public abstract class TcpServerOrClient extends ServerOrClient<SocketChan> imple
     // then this BufferSupplier can be shared between all
     // the SSL connections managed by this client.
     protected abstract BufferSupplier getSSLBufferSupplier();
+
+    protected abstract void deleteConnection(TcpConnection tcpConnection);
+
+    protected abstract boolean offerConnection(TcpConnection tcpConnection);
 }

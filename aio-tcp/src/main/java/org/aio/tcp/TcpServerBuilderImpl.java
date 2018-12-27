@@ -39,7 +39,6 @@
 package org.aio.tcp;
 
 import org.aio.core.ServerOrClient;
-import org.aio.core.api.ServerOrClientAPI;
 import org.aio.tcp.common.TcpUtils;
 
 import javax.net.ssl.SSLContext;
@@ -87,6 +86,6 @@ final class TcpServerBuilderImpl extends ServerOrClient.Builder implements TcpSe
 
     @Override
     public TcpServer.FirstStagesConfigurer configureStages() {
-        return null; // todo create TcpServerPreStagesConfigurer(impl)
+        return new TcpFirstStagesConfigurerImpl(this);
     }
 }

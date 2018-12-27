@@ -46,22 +46,32 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Flow;
 
 public abstract class TcpConnection implements Closeable {
 
+    private final Logger logger = LoggerFactory.getLogger(TcpConnection.class);
+
     private final InetSocketAddress address;
     private final TcpServerOrClient tcpServerOrClient;
+    private volatile Throwable cause;
+    private final TcpTubeSubscriber subscriber;
+
+    volatile boolean closed;
 
     TcpConnection(InetSocketAddress address, TcpServerOrClient tcpServerOrClient) {
         this.address = address;
         this.tcpServerOrClient = tcpServerOrClient;
+        subscriber = new TcpTubeSubscriber(tcpServerOrClient);
     }
 
     TcpServerOrClient getServerOrClient() {
@@ -106,7 +116,11 @@ public abstract class TcpConnection implements Closeable {
      */
     abstract TcpPublisher getPublisher();
 
-    public static TcpConnection createConnection(InetSocketAddress addr,
+    TcpTubeSubscriber getSubscriber() {
+        return subscriber;
+    }
+
+    static TcpConnection createConnection(InetSocketAddress addr,
                                               TcpServerImpl server,
                                               SocketChan chan,
                                               boolean secure) {
@@ -237,5 +251,140 @@ public abstract class TcpConnection implements Closeable {
     @Override
     public String toString() {
         return "TcpConnection: " + getSocketChan().toString();
+    }
+
+    private void asyncReceive(ByteBuffer buffer) {
+        // Note: asyncReceive is only called from the TcpTubeSubscriber
+        //       sequential scheduler.
+        try {
+            ByteBuffer b = buffer;
+            // the TcpTubeSubscriber scheduler ensures that the order of incoming
+            // buffers is preserved.
+            // todo must be first Handler in Stages
+//            framesController.processReceivedData(buffer);
+        } catch (Throwable e) {
+            String msg = CoreUtils.stackTrace(e);
+            logger.trace(msg);
+            shutdown(e);
+        }
+    }
+
+    void shutdown(Throwable t) {
+        if (logger.isDebugEnabled()) logger.debug("Shutting down tcp (closed="+closed+"): " + t);
+        if (closed) return;
+        synchronized (this) {
+            if (closed) return;
+            closed = true;
+        }
+        if (!(t instanceof EOFException)) {
+            logger.error("Not a EOFException", t);
+        } else if (t != null) {
+            logger.error("Shutting down connection: {}", t.getMessage());
+        }
+        Throwable initialCause = this.cause;
+        if (initialCause == null) this.cause = t;
+        tcpServerOrClient.deleteConnection(this);
+        close();
+    }
+
+    /**
+     * A simple tube subscriber for reading from the connection flow.
+     */
+    final class TcpTubeSubscriber implements FlowTube.TubeSubscriber {
+
+        private final Logger logger = LoggerFactory.getLogger(TcpTubeSubscriber.class);
+
+        private volatile Flow.Subscription subscription;
+        private volatile boolean completed;
+        private volatile boolean dropped;
+        private volatile Throwable error;
+        private final ConcurrentLinkedQueue<ByteBuffer> queue
+                = new ConcurrentLinkedQueue<>();
+        private final SequentialScheduler scheduler =
+                SequentialScheduler.synchronizedScheduler(this::processQueue);
+        private final TcpServerOrClient serverOrClient;
+
+        TcpTubeSubscriber(TcpServerOrClient serverOrClient) {
+            this.serverOrClient = Objects.requireNonNull(serverOrClient);
+        }
+
+        final void processQueue() {
+            try {
+                while (!queue.isEmpty() && !scheduler.isStopped()) {
+                    ByteBuffer buffer = queue.poll();
+                    if (logger.isDebugEnabled())
+                        logger.debug("sending {} to Http2Connection.asyncReceive",
+                                buffer.remaining());
+                    asyncReceive(buffer);
+                }
+            } catch (Throwable t) {
+                Throwable x = error;
+                if (x == null) error = t;
+            } finally {
+                Throwable x = error;
+                if (x != null) {
+                    if (logger.isDebugEnabled()) logger.debug("Stopping scheduler", x);
+                    scheduler.stop();
+                    shutdown(x);
+                }
+            }
+        }
+
+        private void runOrSchedule() {
+            if (serverOrClient.isSelectorThread()) {
+                scheduler.runOrSchedule(serverOrClient.theExecutor());
+            } else scheduler.runOrSchedule();
+        }
+
+        @Override
+        public void onSubscribe(Flow.Subscription subscription) {
+            // supports being called multiple time.
+            // doesn't cancel the previous subscription, since that is
+            // most probably the same as the new subscription.
+            assert this.subscription == null || !dropped;
+            this.subscription = subscription;
+            dropped = false;
+            // TODO FIXME: request(1) should be done by the delegate.
+            if (!completed) {
+                if (logger.isDebugEnabled())
+                    logger.debug("onSubscribe: requesting Long.MAX_VALUE for reading");
+                subscription.request(Long.MAX_VALUE);
+            } else {
+                if (logger.isDebugEnabled()) logger.debug("onSubscribe: already completed");
+            }
+        }
+
+        @Override
+        public void onNext(List<ByteBuffer> item) {
+            if (logger.isDebugEnabled()) logger.debug("onNext: got " + CoreUtils.remaining(item)
+                    + " bytes in " + item.size() + " buffers");
+            queue.addAll(item);
+            runOrSchedule();
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            if (logger.isDebugEnabled()) logger.debug("onError: ", throwable);
+            error = throwable;
+            completed = true;
+            runOrSchedule();
+        }
+
+        @Override
+        public void onComplete() {
+            String msg = "EOF reached while reading";
+            if (logger.isDebugEnabled()) logger.debug(msg);
+            error = new EOFException(msg);
+            completed = true;
+            runOrSchedule();
+        }
+
+        @Override
+        public void dropSubscription() {
+            if (logger.isDebugEnabled()) logger.debug("dropSubscription");
+            // we could probably set subscription to null here...
+            // then we might not need the 'dropped' boolean?
+            dropped = true;
+        }
     }
 }
