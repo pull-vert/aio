@@ -198,7 +198,7 @@ public abstract class TcpConnection implements Closeable {
             @Override
             public void cancel() {
                 if (logger.isDebugEnabled())
-                    logger.debug("HttpPublisher: cancelled by {}", getConnectionFlow());
+                    logger.debug("TcpPublisher: cancelled by {}", getConnectionFlow());
             }
 
             private boolean isEmpty() {
@@ -313,7 +313,7 @@ public abstract class TcpConnection implements Closeable {
                 while (!queue.isEmpty() && !scheduler.isStopped()) {
                     ByteBuffer buffer = queue.poll();
                     if (logger.isDebugEnabled())
-                        logger.debug("sending {} to Http2Connection.asyncReceive",
+                        logger.debug("sending {} to TcpConnection.asyncReceive",
                                 buffer.remaining());
                     asyncReceive(buffer);
                 }
