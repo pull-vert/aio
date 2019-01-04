@@ -46,7 +46,7 @@ import java.util.concurrent.Flow;
  * FlowTube is an I/O abstraction that allows reading from and writing to a
  * destination asynchronously.
  * This is not a {@link Flow.Processor
- * Flow.Processor&lt;List&lt;ByteBuffer&gt;, List&lt;ByteBuffer&gt;&gt;},
+ * Flow.Processor&lt;IN, OUT&gt;},
  * but rather models a publisher source and a subscriber sink in a bidirectional flow.
  * <p>
  * The {@code connectFlows} method should be called to connect the bidirectional
@@ -55,9 +55,9 @@ import java.util.concurrent.Flow;
  * readSubscriber} is called, the FlowTube will call {@code dropSubscription} on
  * its former readSubscriber, and {@code onSubscribe} on its new readSubscriber.
  */
-public interface FlowTube extends
-       Flow.Publisher<List<ByteBuffer>>,
-       Flow.Subscriber<List<ByteBuffer>> {
+public interface FlowTube<IN, OUT> extends
+       Flow.Publisher<IN>,
+       Flow.Subscriber<OUT> {
 
     /**
      * A subscriber for reading from the bidirectional flow.
@@ -66,7 +66,7 @@ public interface FlowTube extends
      * Once {@code dropSubscription()} is called, the {@code TubeSubscriber}
      * should stop calling any method on its subscription.
      */
-    public static interface TubeSubscriber extends Flow.Subscriber<List<ByteBuffer>> {
+    public static interface TubeSubscriber<IN> extends Flow.Subscriber<IN> {
 
         /**
          * Called when the flow is connected again, and the subscription
