@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.tcp.common;
+package org.aio.core.common;
 
 import org.aio.core.common.Demand;
 import org.aio.core.util.concurrent.SequentialScheduler;

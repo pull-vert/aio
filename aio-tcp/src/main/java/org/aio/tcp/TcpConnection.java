@@ -105,7 +105,7 @@ public abstract class TcpConnection implements Closeable {
 
     abstract FlowTube getConnectionFlow();
 
-    interface TcpPublisher extends FlowTube.TubePublisher {
+    interface TcpPublisher extends FlowTube.TubePublisher<List<ByteBuffer>> {
         void enqueue(List<ByteBuffer> buffers) throws IOException;
         void signalEnqueued() throws IOException;
     }
@@ -223,14 +223,14 @@ public abstract class TcpConnection implements Closeable {
         }
 
         @Override
-        public void enqueue(List<ByteBuffer> buffers) throws IOException {
+        public void enqueue(List<ByteBuffer> buffers) {
             queue.add(buffers);
             int bytes = buffers.stream().mapToInt(ByteBuffer::remaining).sum();
             logger.debug("added {} bytes to the write queue", bytes);
         }
 
         @Override
-        public void signalEnqueued() throws IOException {
+        public void signalEnqueued() {
             logger.debug("signalling the getPublisher of the write queue");
             signal();
         }
@@ -290,7 +290,7 @@ public abstract class TcpConnection implements Closeable {
     /**
      * A simple tube subscriber for reading from the connection flow.
      */
-    final class TcpTubeSubscriber implements FlowTube.TubeSubscriber {
+    final class TcpTubeSubscriber implements FlowTube.TubeSubscriber<List<ByteBuffer>> {
 
         private final Logger logger = LoggerFactory.getLogger(TcpTubeSubscriber.class);
 

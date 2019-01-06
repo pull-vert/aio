@@ -63,10 +63,10 @@ import java.util.function.Supplier;
  * The read subscriber should call {@code subscribe} on the ChanTube before
  * the ChanTube is subscribed to the write publisher.
  */
-public abstract class ChanTube<T extends Chan> implements FlowTube {
+public abstract class ChanTube<T extends Chan> implements FlowTube<List<ByteBuffer>, List<ByteBuffer>> {
 
     private final Logger logger = LoggerFactory.getLogger(ChanTube.class);
-    static final AtomicLong IDS = new AtomicLong();
+    private static final AtomicLong IDS = new AtomicLong();
 
     private final ServerOrClient<T> serverOrClient;
     private final T chan;
@@ -101,8 +101,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     public boolean isFinished() {
         InternalReadPublisher.InternalReadSubscription subscription =
                 readPublisher.subscriptionImpl;
-        return subscription != null && subscription.completed
-                || subscription == null && errorRef.get() != null;
+        return subscription.completed;
     }
 
     // ===================================================================== //
@@ -199,27 +198,26 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     // is consistent. It should only be considered as weakly accurate - in
     // particular in what concerns the events states, especially when displaying
     // a read event state from a write event callback and conversely.
-    void debugState(String when) {
+    private void debugState(String when) {
         if (logger.isDebugEnabled()) {
             StringBuilder state = new StringBuilder();
 
             InternalReadPublisher.InternalReadSubscription sub =
                     readPublisher.subscriptionImpl;
-            InternalReadPublisher.ReadEvent readEvent =
-                    sub == null ? null : sub.readEvent;
-            Demand rdemand = sub == null ? null : sub.demand;
+            InternalReadPublisher.ReadEvent readEvent = sub.readEvent;
+            Demand rdemand = sub.demand;
             InternalWriteSubscriber.WriteEvent writeEvent =
                     writeSubscriber.writeEvent;
             Demand wdemand = writeSubscriber.writeDemand;
             int rops = readEvent == null ? 0 : readEvent.getInterestOps();
-            long rd = rdemand == null ? 0 : rdemand.get();
-            int wops = writeEvent == null ? 0 : writeEvent.getInterestOps();
-            long wd = wdemand == null ? 0 : wdemand.get();
+            long rd = rdemand.get();
+            int wops = writeEvent.getInterestOps();
+            long wd = wdemand.get();
 
             state.append(when).append(" Reading: [ops=")
                     .append(rops).append(", demand=").append(rd)
                     .append(", stopped=")
-                    .append((sub == null ? false : sub.readScheduler.isStopped()))
+                    .append(sub.readScheduler.isStopped())
                     .append("], Writing: [ops=").append(wops)
                     .append(", demand=").append(wd)
                     .append("]");
@@ -374,7 +372,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
                         }
                     }
                 } else {
-                    resumeWriteEvent(inSelectorThread);
+                    resumeWriteEvent();
                 }
             } catch (Throwable t) {
                 signalError(t);
@@ -423,7 +421,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
             debugState("InternalWriteSubscriber::onComplete");
         }
 
-        void resumeWriteEvent(boolean inSelectorThread) {
+        void resumeWriteEvent() {
             if (logger.isDebugEnabled()) logger.debug("scheduling write event");
             resumeEvent(writeEvent, this::signalError);
         }
@@ -553,8 +551,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     //
     private final class InternalReadPublisher
             implements Flow.Publisher<List<ByteBuffer>> {
-        private final InternalReadSubscription subscriptionImpl
-                = new InternalReadSubscription();
+        private final InternalReadSubscription subscriptionImpl = new InternalReadSubscription();
         AtomicReference<ReadSubscription> pendingSubscription = new AtomicReference<>();
         private volatile ReadSubscription subscription;
 
@@ -562,7 +559,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
         public void subscribe(Flow.Subscriber<? super List<ByteBuffer>> s) {
             Objects.requireNonNull(s);
 
-            TubeSubscriber sub = FlowTube.asTubeSubscriber(s);
+            TubeSubscriber<List<ByteBuffer>> sub = FlowTube.asTubeSubscriber(s);
             ReadSubscription target = new ReadSubscription(subscriptionImpl, sub);
             ReadSubscription previous = pendingSubscription.getAndSet(target);
 
@@ -598,17 +595,17 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
 
         final class ReadSubscription implements Flow.Subscription {
             final InternalReadSubscription impl;
-            final TubeSubscriber subscriber;
+            final TubeSubscriber<List<ByteBuffer>> subscriber;
             final AtomicReference<Throwable> errorRef = new AtomicReference<>();
             final BufferSource bufferSource;
             volatile boolean subscribed;
             volatile boolean cancelled;
             volatile boolean completed;
 
-            public ReadSubscription(InternalReadSubscription impl,
-                                    TubeSubscriber subscriber) {
+            ReadSubscription(InternalReadSubscription impl,
+                             TubeSubscriber<List<ByteBuffer>> subscriber) {
                 this.impl = impl;
-                this.bufferSource = getBufferSource(subscriber);;
+                this.bufferSource = getBufferSource(subscriber);
                 this.subscriber = subscriber;
             }
 
@@ -808,7 +805,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
                                           (Object)error);
                             return;
                         }
-                        TubeSubscriber subscriber = current.subscriber;
+                        TubeSubscriber<List<ByteBuffer>> subscriber = current.subscriber;
                         if (error != null) {
                             completed = true;
                             // safe to pause here because we're finished anyway.
@@ -1067,8 +1064,8 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     //                       Channel Read/Write                              //
     // ===================================================================== //
     static final int MAX_BUFFERS = 3;
-    static final List<ByteBuffer> EOF = List.of();
-    static final List<ByteBuffer> NOTHING = List.of(CoreUtils.EMPTY_BYTEBUFFER);
+    private static final List<ByteBuffer> EOF = List.of();
+    private static final List<ByteBuffer> NOTHING = List.of(CoreUtils.EMPTY_BYTEBUFFER);
 
     // readAvailable() will read bytes into the 'current' ByteBuffer until
     // the ByteBuffer is full, or 0 or -1 (EOF) is returned by read().
@@ -1201,8 +1198,8 @@ public abstract class ChanTube<T extends Chan> implements FlowTube {
     }
 
     @Override
-    public void connectFlows(TubePublisher writePublisher,
-                             TubeSubscriber readSubscriber) {
+    public void connectFlows(TubePublisher<List<ByteBuffer>> writePublisher,
+                             TubeSubscriber<List<ByteBuffer>> readSubscriber) {
         if (logger.isDebugEnabled()) logger.debug("connecting flows");
         this.subscribe(readSubscriber);
         writePublisher.subscribe(this);

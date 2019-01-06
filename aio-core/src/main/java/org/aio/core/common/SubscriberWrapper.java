@@ -39,6 +39,10 @@
 package org.aio.core.common;
 
 import org.aio.core.api.FlowTube;
+import org.aio.core.util.concurrent.MinimalFuture;
+import org.aio.core.util.concurrent.SequentialScheduler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
@@ -70,30 +74,27 @@ import java.util.concurrent.atomic.AtomicReference;
  * at any time.
  */
 public abstract class SubscriberWrapper
-    implements FlowTube.TubeSubscriber, Closeable, Flow.Processor<List<ByteBuffer>,List<ByteBuffer>>
-                // TODO: SSLTube Subscriber will never change? Does this really need to be a TS?
-{
-    final Logger debug =
-            Utils.getDebugLogger(this::dbgString, Utils.DEBUG);
+    implements FlowTube.TubeSubscriber<List<ByteBuffer>>, Closeable, Flow.Processor<List<ByteBuffer>, List<ByteBuffer>> {
+    private final Logger logger = LoggerFactory.getLogger(SubscriberWrapper.class);
 
     public enum SchedulingAction { CONTINUE, RETURN, RESCHEDULE }
 
-    volatile Flow.Subscription upstreamSubscription;
-    final SubscriptionBase downstreamSubscription;
-    volatile boolean upstreamCompleted;
-    volatile boolean downstreamCompleted;
-    volatile boolean completionAcknowledged;
+    private volatile Flow.Subscription upstreamSubscription;
+    private final SubscriptionBase downstreamSubscription;
+    private volatile boolean upstreamCompleted;
+    private volatile boolean downstreamCompleted;
+    private volatile boolean completionAcknowledged;
     private volatile Subscriber<? super List<ByteBuffer>> downstreamSubscriber;
     // processed byte to send to the downstream subscriber.
     private final ConcurrentLinkedQueue<List<ByteBuffer>> outputQ;
     private final CompletableFuture<Void> cf;
     private final SequentialScheduler pushScheduler;
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-    final AtomicLong upstreamWindow = new AtomicLong(0);
+    private final AtomicLong upstreamWindow = new AtomicLong(0);
 
     /**
      * Wraps the given downstream subscriber. For each call to {@link
-     * #onNext(List<ByteBuffer>) } the given filter function is invoked
+     * #onNext(List < ByteBuffer >) } the given filter function is invoked
      * and the list (if not empty) returned is passed downstream.
      *
      * A {@code CompletableFuture} is supplied which can be used to signal an
@@ -105,7 +106,7 @@ public abstract class SubscriberWrapper
     public SubscriberWrapper()
     {
         this.outputQ = new ConcurrentLinkedQueue<>();
-        this.cf = new MinimalFuture<Void>();
+        this.cf = new MinimalFuture<>();
         cf.whenComplete((v,t) -> {
             if (t != null)
                 errorCommon(t);
@@ -124,7 +125,7 @@ public abstract class SubscriberWrapper
 
     /**
      * Wraps the given downstream wrapper in this. For each call to
-     * {@link #onNext(List<ByteBuffer>) } the incoming() method is called.
+     * {@link #onNext(List < ByteBuffer >) } the incoming() method is called.
      *
      * The {@code downstreamCF} from the downstream wrapper is linked to this
      * wrappers notifier.
@@ -145,7 +146,7 @@ public abstract class SubscriberWrapper
      * @param buffers a List of ByteBuffers.
      * @param complete if true then no more data will be added to the list
      */
-    protected abstract void incoming(List<ByteBuffer> buffers, boolean complete);
+    abstract void incoming(List<ByteBuffer> buffers, boolean complete);
 
     /**
      * This method is called to determine the window size to use at any time. The
@@ -161,7 +162,7 @@ public abstract class SubscriberWrapper
      *
      * @return value to add to currentWindow
      */
-    protected long upstreamWindowUpdate(long currentWindow, long downstreamQsize) {
+    private long upstreamWindowUpdate(long currentWindow, long downstreamQsize) {
         if (downstreamQsize > 5) {
             return 0;
         }
@@ -177,7 +178,7 @@ public abstract class SubscriberWrapper
      * Override this if anything needs to be done after the upstream subscriber
      * has subscribed
      */
-    protected void onSubscribe() {
+    private void onSubscribe() {
     }
 
     /**
@@ -185,7 +186,7 @@ public abstract class SubscriberWrapper
      * and processing the input queue.
      * @return
      */
-    protected SchedulingAction enterScheduling() {
+    private SchedulingAction enterScheduling() {
         return SchedulingAction.CONTINUE;
     }
 
@@ -227,23 +228,23 @@ public abstract class SubscriberWrapper
     public void outgoing(List<ByteBuffer> buffers, boolean complete) {
         Objects.requireNonNull(buffers);
         if (complete) {
-            assert Utils.remaining(buffers) == 0;
+            assert CoreUtils.remaining(buffers) == 0;
             boolean closing = closing();
-            if (debug.on())
-                debug.log("completionAcknowledged upstreamCompleted:%s,"
-                          + " downstreamCompleted:%s, closing:%s",
+            if (logger.isDebugEnabled())
+                logger.debug("completionAcknowledged upstreamCompleted:{},"
+                          + " downstreamCompleted:{}, closing:{}",
                           upstreamCompleted, downstreamCompleted, closing);
             if (!upstreamCompleted && !closing) {
                 throw new IllegalStateException("upstream not completed");
             }
             completionAcknowledged = true;
         } else {
-            if (debug.on())
-                debug.log("Adding %d to outputQ queue", Utils.remaining(buffers));
+            if (logger.isDebugEnabled())
+                logger.debug("Adding {} to outputQ queue", CoreUtils.remaining(buffers));
             outputQ.add(buffers);
         }
-        if (debug.on())
-            debug.log("pushScheduler" +(pushScheduler.isStopped() ? " is stopped!" : " is alive"));
+        if (logger.isDebugEnabled())
+            logger.debug("pushScheduler" +(pushScheduler.isStopped() ? " is stopped!" : " is alive"));
         pushScheduler.runOrSchedule();
     }
 
@@ -273,16 +274,16 @@ public abstract class SubscriberWrapper
             try {
                 run1();
             } catch (Throwable t) {
-                if (debug.on())
-                    debug.log("DownstreamPusher threw: " + t);
+                if (logger.isDebugEnabled())
+                    logger.debug("DownstreamPusher threw: " + t);
                 errorCommon(t);
             }
         }
 
         private void run1() {
             if (downstreamCompleted) {
-                if (debug.on())
-                    debug.log("DownstreamPusher: downstream is already completed");
+                if (logger.isDebugEnabled())
+                    logger.debug("DownstreamPusher: downstream is already completed");
                 return;
             }
             switch (enterScheduling()) {
@@ -302,8 +303,8 @@ public abstract class SubscriberWrapper
                         return;
                     downstreamCompleted = true;
                 }
-                if (debug.on())
-                    debug.log("DownstreamPusher: forwarding error downstream: " + error);
+                if (logger.isDebugEnabled())
+                    logger.debug("DownstreamPusher: forwarding error downstream: " + error);
                 pushScheduler.stop();
                 outputQ.clear();
                 downstreamSubscriber.onError(error);
@@ -313,21 +314,21 @@ public abstract class SubscriberWrapper
 
             // OK - no error, let's proceed
             if (!outputQ.isEmpty()) {
-                if (debug.on())
-                    debug.log("DownstreamPusher: queue not empty, downstreamSubscription: %s",
+                if (logger.isDebugEnabled())
+                    logger.debug("DownstreamPusher: queue not empty, downstreamSubscription: {}",
                               downstreamSubscription);
             } else {
-                if (debug.on())
-                    debug.log("DownstreamPusher: queue empty, downstreamSubscription: %s",
+                if (logger.isDebugEnabled())
+                    logger.debug("DownstreamPusher: queue empty, downstreamSubscription: {}",
                                downstreamSubscription);
             }
 
             boolean datasent = false;
             while (!outputQ.isEmpty() && downstreamSubscription.tryDecrement()) {
                 List<ByteBuffer> b = outputQ.poll();
-                if (debug.on())
-                    debug.log("DownstreamPusher: Pushing %d bytes downstream",
-                              Utils.remaining(b));
+                if (logger.isDebugEnabled())
+                    logger.debug("DownstreamPusher: Pushing {} bytes downstream",
+                              CoreUtils.remaining(b));
                 downstreamSubscriber.onNext(b);
                 datasent = true;
             }
@@ -336,13 +337,13 @@ public abstract class SubscriberWrapper
         }
     }
 
-    void upstreamWindowUpdate() {
+    private void upstreamWindowUpdate() {
         long downstreamQueueSize = outputQ.size();
         long upstreamWindowSize = upstreamWindow.get();
         long n = upstreamWindowUpdate(upstreamWindowSize, downstreamQueueSize);
-        if (debug.on())
-            debug.log("upstreamWindowUpdate, "
-                      + "downstreamQueueSize:%d, upstreamWindow:%d",
+        if (logger.isDebugEnabled())
+            logger.debug("upstreamWindowUpdate, "
+                      + "downstreamQueueSize:{}, upstreamWindow:{}",
                       downstreamQueueSize, upstreamWindowSize);
         if (n > 0)
             upstreamRequest(n);
@@ -355,8 +356,8 @@ public abstract class SubscriberWrapper
         }
         this.upstreamSubscription = subscription;
         upstreamRequest(upstreamWindowUpdate(0, 0));
-        if (debug.on())
-            debug.log("calling downstreamSubscriber::onSubscribe on %s",
+        if (logger.isDebugEnabled())
+            logger.debug("calling downstreamSubscriber::onSubscribe on {}",
                       downstreamSubscriber);
         downstreamSubscriber.onSubscribe(downstreamSubscription);
         onSubscribe();
@@ -364,7 +365,7 @@ public abstract class SubscriberWrapper
 
     @Override
     public void onNext(List<ByteBuffer> item) {
-        if (debug.on()) debug.log("onNext");
+        if (logger.isDebugEnabled()) logger.debug("onNext");
         long prev = upstreamWindow.getAndDecrement();
         if (prev <= 0)
             throw new IllegalStateException("invalid onNext call");
@@ -373,7 +374,7 @@ public abstract class SubscriberWrapper
     }
 
     private void upstreamRequest(long n) {
-        if (debug.on()) debug.log("requesting %d", n);
+        if (logger.isDebugEnabled()) logger.debug("requesting {}", n);
         upstreamWindow.getAndAdd(n);
         upstreamSubscription.request(n);
     }
@@ -390,15 +391,15 @@ public abstract class SubscriberWrapper
 
     @Override
     public void onError(Throwable throwable) {
-        if (debug.on()) debug.log("onError: " + throwable);
+        if (logger.isDebugEnabled()) logger.debug("onError: " + throwable);
         errorCommon(Objects.requireNonNull(throwable));
     }
 
-    protected boolean errorCommon(Throwable throwable) {
+    private boolean errorCommon(Throwable throwable) {
         assert throwable != null ||
                 (throwable = new AssertionError("null throwable")) != null;
         if (errorRef.compareAndSet(null, throwable)) {
-            if (debug.on()) debug.log("error", throwable);
+            if (logger.isDebugEnabled()) logger.debug("error", throwable);
             upstreamCompleted = true;
             pushScheduler.runOrSchedule();
             return true;
@@ -425,9 +426,9 @@ public abstract class SubscriberWrapper
 
     @Override
     public void onComplete() {
-        if (debug.on()) debug.log("upstream completed: " + toString());
+        if (logger.isDebugEnabled()) logger.debug("upstream completed: " + toString());
         upstreamCompleted = true;
-        incomingCaller(Utils.EMPTY_BB_LIST, true);
+        incomingCaller(CoreUtils.EMPTY_BB_LIST, true);
         // pushScheduler will call checkCompletion()
         pushScheduler.runOrSchedule();
     }
@@ -440,7 +441,7 @@ public abstract class SubscriberWrapper
         incomingCaller(List.of(l), false);
     }
 
-    void checkCompletion() {
+    private void checkCompletion() {
         if (downstreamCompleted || !upstreamCompleted) {
             return;
         }
@@ -452,7 +453,7 @@ public abstract class SubscriberWrapper
             return;
         }
         if (completionAcknowledged) {
-            if (debug.on()) debug.log("calling downstreamSubscriber.onComplete()");
+            if (logger.isDebugEnabled()) logger.debug("calling downstreamSubscriber.onComplete()");
             downstreamSubscriber.onComplete();
             // Fix me subscriber.onComplete.run();
             downstreamCompleted = true;
@@ -461,7 +462,7 @@ public abstract class SubscriberWrapper
     }
 
     // called from the downstream Subscription.cancel()
-    void downstreamCompletion() {
+    private void downstreamCompletion() {
         upstreamSubscription.cancel();
         cf.complete(null);
     }
@@ -484,9 +485,5 @@ public abstract class SubscriberWrapper
           .append(" downstreamSubscription: ").append(downstreamSubscription.toString());
 
         return sb.toString();
-    }
-
-    public String dbgString() {
-        return "SubscriberWrapper";
     }
 }
