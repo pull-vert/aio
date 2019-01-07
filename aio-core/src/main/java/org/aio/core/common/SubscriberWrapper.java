@@ -45,8 +45,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -61,9 +59,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * downstream flow control automatically and upstream flow control automatically
  * by default.
  * <p>
- * Processing is done by implementing the {@link #incoming(List, boolean)} method
- * which supplies buffers from upstream. This method (or any other method)
- * can then call the outgoing() method to deliver processed buffers downstream.
+ * Processing is done by implementing the {@link #incoming(IN, boolean)} method
+ * which supplies IN data from upstream. This method (or any other method)
+ * can then call the outgoing() method to deliver processed OUT data downstream.
  * <p>
  * Upstream error signals are delivered downstream directly. Cancellation from
  * downstream is also propagated upstream immediately.
@@ -73,28 +71,28 @@ import java.util.concurrent.atomic.AtomicReference;
  * can only occur after onComplete() is called, but errors can be propagated upwards
  * at any time.
  */
-public abstract class SubscriberWrapper
-    implements FlowTube.TubeSubscriber<List<ByteBuffer>>, Closeable, Flow.Processor<List<ByteBuffer>, List<ByteBuffer>> {
+public abstract class SubscriberWrapper<IN, OUT>
+    implements FlowTube.TubeSubscriber<IN>, Closeable, Flow.Processor<IN, OUT> {
     private final Logger logger = LoggerFactory.getLogger(SubscriberWrapper.class);
 
     public enum SchedulingAction { CONTINUE, RETURN, RESCHEDULE }
 
-    private volatile Flow.Subscription upstreamSubscription;
+    volatile Flow.Subscription upstreamSubscription;
     private final SubscriptionBase downstreamSubscription;
-    private volatile boolean upstreamCompleted;
-    private volatile boolean downstreamCompleted;
-    private volatile boolean completionAcknowledged;
-    private volatile Subscriber<? super List<ByteBuffer>> downstreamSubscriber;
+    volatile boolean upstreamCompleted;
+    volatile boolean downstreamCompleted;
+    volatile boolean completionAcknowledged;
+    private volatile Subscriber<? super OUT> downstreamSubscriber;
     // processed byte to send to the downstream subscriber.
-    private final ConcurrentLinkedQueue<List<ByteBuffer>> outputQ;
+    final ConcurrentLinkedQueue<OUT> outputQ;
     private final CompletableFuture<Void> cf;
-    private final SequentialScheduler pushScheduler;
+    final SequentialScheduler pushScheduler;
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     private final AtomicLong upstreamWindow = new AtomicLong(0);
 
     /**
      * Wraps the given downstream subscriber. For each call to {@link
-     * #onNext(List < ByteBuffer >) } the given filter function is invoked
+     * #onNext(OUT) } the given filter function is invoked
      * and the list (if not empty) returned is passed downstream.
      *
      * A {@code CompletableFuture} is supplied which can be used to signal an
@@ -118,35 +116,34 @@ public abstract class SubscriberWrapper
     }
 
     @Override
-    public final void subscribe(Subscriber<?  super List<ByteBuffer>> downstreamSubscriber) {
+    public final void subscribe(Subscriber<? super OUT> downstreamSubscriber) {
         Objects.requireNonNull(downstreamSubscriber);
         this.downstreamSubscriber = downstreamSubscriber;
     }
 
     /**
      * Wraps the given downstream wrapper in this. For each call to
-     * {@link #onNext(List < ByteBuffer >) } the incoming() method is called.
+     * {@link #onNext(OUT) } the incoming() method is called.
      *
      * The {@code downstreamCF} from the downstream wrapper is linked to this
      * wrappers notifier.
      *
      * @param downstreamWrapper downstream destination
      */
-    public SubscriberWrapper(Subscriber<? super List<ByteBuffer>> downstreamWrapper)
-    {
+    public SubscriberWrapper(Subscriber<? super OUT> downstreamWrapper) {
         this();
         subscribe(downstreamWrapper);
     }
 
     /**
      * Delivers data to be processed by this wrapper. Generated data to be sent
-     * downstream, must be provided to the {@link #outgoing(List, boolean)}}
+     * downstream, must be provided to the {@link #outgoing(OUT, boolean)}}
      * method.
      *
-     * @param buffers a List of ByteBuffers.
+     * @param in a IN data.
      * @param complete if true then no more data will be added to the list
      */
-    abstract void incoming(List<ByteBuffer> buffers, boolean complete);
+    abstract void incoming(IN in, boolean complete);
 
     /**
      * This method is called to determine the window size to use at any time. The
@@ -199,22 +196,6 @@ public abstract class SubscriberWrapper
     }
 
     /**
-     * Delivers buffers of data downstream. After incoming()
-     * has been called complete == true signifying completion of the upstream
-     * subscription, data may continue to be delivered, up to when outgoing() is
-     * called complete == true, after which, the downstream subscription is
-     * completed.
-     *
-     * It's an error to call outgoing() with complete = true if incoming() has
-     * not previously been called with it.
-     */
-    public void outgoing(ByteBuffer buffer, boolean complete) {
-        Objects.requireNonNull(buffer);
-        assert !complete || !buffer.hasRemaining();
-        outgoing(List.of(buffer), complete);
-    }
-
-    /**
      * Sometime it might be necessary to complete the downstream subscriber
      * before the upstream completes. For instance, when an SSL server
      * sends a notify_close. In that case we should let the outgoing
@@ -225,10 +206,9 @@ public abstract class SubscriberWrapper
         return false;
     }
 
-    public void outgoing(List<ByteBuffer> buffers, boolean complete) {
-        Objects.requireNonNull(buffers);
+    public void outgoing(OUT out, boolean complete) {
+        Objects.requireNonNull(out);
         if (complete) {
-            assert CoreUtils.remaining(buffers) == 0;
             boolean closing = closing();
             if (logger.isDebugEnabled())
                 logger.debug("completionAcknowledged upstreamCompleted:{},"
@@ -240,8 +220,8 @@ public abstract class SubscriberWrapper
             completionAcknowledged = true;
         } else {
             if (logger.isDebugEnabled())
-                logger.debug("Adding {} to outputQ queue", CoreUtils.remaining(buffers));
-            outputQ.add(buffers);
+                logger.debug("Adding {} to outputQ queue", out);
+            outputQ.add(out);
         }
         if (logger.isDebugEnabled())
             logger.debug("pushScheduler" +(pushScheduler.isStopped() ? " is stopped!" : " is alive"));
@@ -325,10 +305,10 @@ public abstract class SubscriberWrapper
 
             boolean datasent = false;
             while (!outputQ.isEmpty() && downstreamSubscription.tryDecrement()) {
-                List<ByteBuffer> b = outputQ.poll();
+                OUT b = outputQ.poll();
                 if (logger.isDebugEnabled())
-                    logger.debug("DownstreamPusher: Pushing {} bytes downstream",
-                              CoreUtils.remaining(b));
+                    logger.debug("DownstreamPusher: Pushing {} downstream",
+                              b);
                 downstreamSubscriber.onNext(b);
                 datasent = true;
             }
@@ -364,7 +344,7 @@ public abstract class SubscriberWrapper
     }
 
     @Override
-    public void onNext(List<ByteBuffer> item) {
+    public void onNext(IN item) {
         if (logger.isDebugEnabled()) logger.debug("onNext");
         long prev = upstreamWindow.getAndDecrement();
         if (prev <= 0)
@@ -416,7 +396,7 @@ public abstract class SubscriberWrapper
         errorCommon(t);
     }
 
-    private void incomingCaller(List<ByteBuffer> l, boolean complete) {
+    void incomingCaller(IN l, boolean complete) {
         try {
             incoming(l, complete);
         } catch(Throwable t) {
@@ -428,18 +408,16 @@ public abstract class SubscriberWrapper
     public void onComplete() {
         if (logger.isDebugEnabled()) logger.debug("upstream completed: " + toString());
         upstreamCompleted = true;
-        incomingCaller(CoreUtils.EMPTY_BB_LIST, true);
+        incomingCaller(finalValue(), true);
         // pushScheduler will call checkCompletion()
         pushScheduler.runOrSchedule();
     }
 
-    /** Adds the given data to the input queue. */
-    public void addData(ByteBuffer l) {
-        if (upstreamSubscription == null) {
-            throw new IllegalStateException("can't add data before upstream subscriber subscribes");
-        }
-        incomingCaller(List.of(l), false);
-    }
+    /**
+     * @return the final value passed as parameter to {@linkplain #incomingCaller(IN, boolean)
+     * incomingCaller(IN, true)} from {@link #onComplete()}
+     */
+    abstract IN finalValue();
 
     private void checkCompletion() {
         if (downstreamCompleted || !upstreamCompleted) {
