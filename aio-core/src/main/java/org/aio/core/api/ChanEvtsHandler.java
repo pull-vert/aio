@@ -11,5 +11,5 @@ package org.aio.core.api;
 /**
  * @author Frédéric Montariol
  */
-public interface ChanEvtsHandler {
+public interface ChanEvtsHandler<IN> extends ChanEvtsHandlerIn<IN> {
 }

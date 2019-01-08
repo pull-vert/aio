@@ -11,7 +11,7 @@ package org.aio.core.api;
 /**
  * @author Frédéric Montariol
  */
-public interface ChanEvtsHandlerIn<IN> extends ChanEvtsHandler {
+public interface ChanEvtsHandlerIn<IN> {
 
     /**
      * Handle a {@code item} Read Event
