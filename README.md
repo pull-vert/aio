@@ -24,8 +24,11 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 * JDK 11 core module for TLSv1.3 support, and maybe more
 * pure QUIC protocol module with TLSv1.3 ?
 * [HTTP/3](https://quicwg.org/base-drafts/draft-ietf-quic-http.html) based on QUIC = UDP + TLSv1.3 or greater. It was previously known as HTTP-over-QUIC.
-* Use [ServiceLoader](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html) mechanism for Executor to overwrite Executor used in JUnit tests.
 * Kotlin first class support, with extension functions etc.
+
+## Ideas (maybe not that good)
+* Use [ServiceLoader](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html) mechanism for Executor to overwrite Executor used in JUnit tests.
+* Use [JEP238 multi-release jar](http://openjdk.java.net/jeps/238), for exemple for TLSv1.3
 
 ## License
 AIO is Open Source Software released under the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html) and is subject to the [Classpath](https://www.gnu.org/software/classpath/license.html) exception.
