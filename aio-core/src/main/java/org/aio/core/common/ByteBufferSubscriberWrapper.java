@@ -48,6 +48,7 @@ import java.util.Objects;
 /**
  * This is a specific abstract SubscriberWrapper for IN = List < ByteBuffer >
  * and OUT = List < ByteBuffer >
+ *     fixme is this class really necessary ? could be replaced by a Stage
  */
 public abstract class ByteBufferSubscriberWrapper extends SubscriberWrapper<List<ByteBuffer>, List<ByteBuffer>> {
 
