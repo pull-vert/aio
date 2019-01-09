@@ -73,6 +73,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public abstract class SubscriberWrapper<IN, OUT>
     implements FlowTube.TubeSubscriber<IN>, Closeable, Flow.Processor<IN, OUT> {
+
     private final Logger logger = LoggerFactory.getLogger(SubscriberWrapper.class);
 
     public enum SchedulingAction { CONTINUE, RETURN, RESCHEDULE }
@@ -375,7 +376,7 @@ public abstract class SubscriberWrapper<IN, OUT>
         errorCommon(Objects.requireNonNull(throwable));
     }
 
-    private boolean errorCommon(Throwable throwable) {
+    boolean errorCommon(Throwable throwable) {
         assert throwable != null ||
                 (throwable = new AssertionError("null throwable")) != null;
         if (errorRef.compareAndSet(null, throwable)) {
