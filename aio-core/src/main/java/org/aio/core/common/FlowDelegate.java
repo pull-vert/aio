@@ -132,7 +132,7 @@ public class FlowDelegate {
         this.reader = new Reader();
         this.writer = new Writer();
         this.exec = exec;
-        this.handshakeState = new AtomicInteger(NOT_HANDSHAKING);
+//        this.handshakeState = new AtomicInteger(NOT_HANDSHAKING);
         this.readerCF = reader.completion();
         this.writerCF = reader.completion();
         readerCF.exceptionally(this::stopOnError);
@@ -223,26 +223,26 @@ public class FlowDelegate {
 //        if (debug.on()) debug.log("setALPN = %s", alpn);
 //        alpnCF.complete(alpn);
 //    }
-
-    public String monitor() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("FlowDelegate: id ").append(id);
-        sb.append(" ").append(dbgString());
-        sb.append(" HS state: " + states(handshakeState));
-//        sb.append(" Engine state: " + engine.getHandshakeStatus().toString());
-        if (stateList != null) {
-            sb.append(" LL : ");
-            for (String s : stateList) {
-                sb.append(s).append(" ");
-            }
-        }
-        sb.append("\r\n");
-        sb.append("Reader:: ").append(reader.toString());
-        sb.append("\r\n");
-        sb.append("Writer:: ").append(writer.toString());
-        sb.append("\r\n===================================");
-        return sb.toString();
-    }
+//
+//    public String monitor() {
+//        StringBuilder sb = new StringBuilder();
+//        sb.append("FlowDelegate: id ").append(id);
+//        sb.append(" ").append(dbgString());
+//        sb.append(" HS state: " + states(handshakeState));
+////        sb.append(" Engine state: " + engine.getHandshakeStatus().toString());
+//        if (stateList != null) {
+//            sb.append(" LL : ");
+//            for (String s : stateList) {
+//                sb.append(s).append(" ");
+//            }
+//        }
+//        sb.append("\r\n");
+//        sb.append("Reader:: ").append(reader.toString());
+//        sb.append("\r\n");
+//        sb.append("Writer:: ").append(writer.toString());
+//        sb.append("\r\n===================================");
+//        return sb.toString();
+//    }
 
     protected SubscriberWrapper.SchedulingAction enterReadScheduling() {
         return SubscriberWrapper.SchedulingAction.CONTINUE;
@@ -657,7 +657,7 @@ public class FlowDelegate {
         // queues of buffers received from upstream waiting
         // to be processed by the SSLEngine
         final List<ByteBuffer> writeList;
-        final Logger debugw =  Utils.getDebugLogger(this::dbgString, Utils.DEBUG);
+        private final Logger logger = LoggerFactory.getLogger(Writer.class);
         volatile boolean completing;
         boolean completed; // only accessed in processData
 
@@ -827,84 +827,84 @@ public class FlowDelegate {
         volatile ByteBuffer writeBuffer;
         private volatile Status lastWrappedStatus;
         @SuppressWarnings("fallthrough")
-        EngineResult wrapBuffers(ByteBuffer[] src) throws SSLException {
-            long len = Utils.remaining(src);
-            if (debugw.on())
-                debugw.log("wrapping " + len + " bytes");
-
-            ByteBuffer dst = writeBuffer;
-            if (dst == null) dst = writeBuffer = getNetBuffer();
-            assert dst.position() == 0 : "buffer position is " + dst.position();
-            assert dst.hasRemaining() : "buffer has no remaining space: capacity=" + dst.capacity();
-
-            while (true) {
-                SSLEngineResult sslResult = engine.wrap(src, dst);
-                if (debugw.on()) debugw.log("SSLResult: " + sslResult);
-                switch (lastWrappedStatus = sslResult.getStatus()) {
-                    case BUFFER_OVERFLOW:
-                        // Shouldn't happen. We allocated buffer with packet size
-                        // get it again if net buffer size was changed
-                        if (debugw.on()) debugw.log("BUFFER_OVERFLOW");
-                        int netSize = packetBufferSize
-                                = engine.getSession().getPacketBufferSize();
-                        ByteBuffer b = writeBuffer = ByteBuffer.allocate(netSize + dst.position());
-                        dst.flip();
-                        b.put(dst);
-                        dst = b;
-                        break; // try again
-                    case CLOSED:
-                        if (debugw.on()) debugw.log("CLOSED");
-                        // fallthrough. There could be some remaining data in dst.
-                        // CLOSED will be handled by the caller.
-                    case OK:
-                        final ByteBuffer dest;
-                        if (dst.position() == 0) {
-                            dest = NOTHING; // can happen if handshake is in progress
-                        } else if (dst.position() < dst.capacity() / 2) {
-                            // less than half the buffer was used.
-                            // copy off the bytes to a smaller buffer, and keep
-                            // the writeBuffer for next time.
-                            dst.flip();
-                            dest = Utils.copyAligned(dst);
-                            dst.clear();
-                        } else {
-                            // more than half the buffer was used.
-                            // just send that buffer downstream, and we will
-                            // get a new writeBuffer next time it is needed.
-                            dst.flip();
-                            dest = dst;
-                            writeBuffer = null;
-                        }
-                        if (debugw.on())
-                            debugw.log("OK => produced: %d bytes into %d, not wrapped: %d",
-                                       dest.remaining(),  dest.capacity(), Utils.remaining(src));
-                        return new EngineResult(sslResult, dest);
-                    case BUFFER_UNDERFLOW:
-                        // Shouldn't happen.  Doesn't returns when wrap()
-                        // underflow handled externally
-                        // assert false : "Buffer Underflow";
-                        if (debug.on()) debug.log("BUFFER_UNDERFLOW");
-                        return new EngineResult(sslResult);
-                    default:
-                        if (debugw.on())
-                            debugw.log("result: %s", sslResult.getStatus());
-                        assert false : "result:" + sslResult.getStatus();
-                }
-            }
-        }
-
-        private boolean needWrap() {
-            return engine.getHandshakeStatus() == HandshakeStatus.NEED_WRAP;
-        }
-
-        private void sendResultBytes(EngineResult result) {
-            if (result.bytesProduced() > 0) {
-                if (debugw.on())
-                    debugw.log("Sending %d bytes downstream",
-                               result.bytesProduced());
-                outgoing(result.destBuffer, false);
-            }
-        }
+//        EngineResult wrapBuffers(ByteBuffer[] src) throws SSLException {
+//            long len = Utils.remaining(src);
+//            if (debugw.on())
+//                debugw.log("wrapping " + len + " bytes");
+//
+//            ByteBuffer dst = writeBuffer;
+//            if (dst == null) dst = writeBuffer = getNetBuffer();
+//            assert dst.position() == 0 : "buffer position is " + dst.position();
+//            assert dst.hasRemaining() : "buffer has no remaining space: capacity=" + dst.capacity();
+//
+//            while (true) {
+//                SSLEngineResult sslResult = engine.wrap(src, dst);
+//                if (debugw.on()) debugw.log("SSLResult: " + sslResult);
+//                switch (lastWrappedStatus = sslResult.getStatus()) {
+//                    case BUFFER_OVERFLOW:
+//                        // Shouldn't happen. We allocated buffer with packet size
+//                        // get it again if net buffer size was changed
+//                        if (debugw.on()) debugw.log("BUFFER_OVERFLOW");
+//                        int netSize = packetBufferSize
+//                                = engine.getSession().getPacketBufferSize();
+//                        ByteBuffer b = writeBuffer = ByteBuffer.allocate(netSize + dst.position());
+//                        dst.flip();
+//                        b.put(dst);
+//                        dst = b;
+//                        break; // try again
+//                    case CLOSED:
+//                        if (debugw.on()) debugw.log("CLOSED");
+//                        // fallthrough. There could be some remaining data in dst.
+//                        // CLOSED will be handled by the caller.
+//                    case OK:
+//                        final ByteBuffer dest;
+//                        if (dst.position() == 0) {
+//                            dest = NOTHING; // can happen if handshake is in progress
+//                        } else if (dst.position() < dst.capacity() / 2) {
+//                            // less than half the buffer was used.
+//                            // copy off the bytes to a smaller buffer, and keep
+//                            // the writeBuffer for next time.
+//                            dst.flip();
+//                            dest = Utils.copyAligned(dst);
+//                            dst.clear();
+//                        } else {
+//                            // more than half the buffer was used.
+//                            // just send that buffer downstream, and we will
+//                            // get a new writeBuffer next time it is needed.
+//                            dst.flip();
+//                            dest = dst;
+//                            writeBuffer = null;
+//                        }
+//                        if (debugw.on())
+//                            debugw.log("OK => produced: %d bytes into %d, not wrapped: %d",
+//                                       dest.remaining(),  dest.capacity(), Utils.remaining(src));
+//                        return new EngineResult(sslResult, dest);
+//                    case BUFFER_UNDERFLOW:
+//                        // Shouldn't happen.  Doesn't returns when wrap()
+//                        // underflow handled externally
+//                        // assert false : "Buffer Underflow";
+//                        if (debug.on()) debug.log("BUFFER_UNDERFLOW");
+//                        return new EngineResult(sslResult);
+//                    default:
+//                        if (debugw.on())
+//                            debugw.log("result: %s", sslResult.getStatus());
+//                        assert false : "result:" + sslResult.getStatus();
+//                }
+//            }
+//        }
+//
+//        private boolean needWrap() {
+//            return engine.getHandshakeStatus() == HandshakeStatus.NEED_WRAP;
+//        }
+//
+//        private void sendResultBytes(EngineResult result) {
+//            if (result.bytesProduced() > 0) {
+//                if (debugw.on())
+//                    debugw.log("Sending %d bytes downstream",
+//                               result.bytesProduced());
+//                outgoing(result.destBuffer, false);
+//            }
+//        }
 
         @Override
         public String toString() {
@@ -917,7 +917,7 @@ public class FlowDelegate {
     }
 
     private void handleError(Throwable t) {
-        if (debug.on()) debug.log("handleError", t);
+        if (logger.isDebugEnabled()) logger.debug("handleError", t);
         readerCF.completeExceptionally(t);
         writerCF.completeExceptionally(t);
 //        // no-op if already completed
