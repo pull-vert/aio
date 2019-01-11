@@ -92,7 +92,7 @@ import java.util.function.IntBinaryOperator;
  * }
  * </pre>
  */
-public class FlowDelegate {
+public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
 
     private final Logger logger = LoggerFactory.getLogger(FlowDelegate.class);
 
