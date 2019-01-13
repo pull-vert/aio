@@ -160,7 +160,7 @@ public abstract class SubscriberWrapper<IN, OUT>
      *
      * @return value to add to currentWindow
      */
-    private long upstreamWindowUpdate(long currentWindow, long downstreamQsize) {
+    protected long upstreamWindowUpdate(long currentWindow, long downstreamQsize) {
         if (downstreamQsize > 5) {
             return 0;
         }

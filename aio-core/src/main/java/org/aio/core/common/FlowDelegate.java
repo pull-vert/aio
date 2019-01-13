@@ -105,8 +105,8 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
 //            monProp != null && (monProp.equals("") || monProp.equalsIgnoreCase("true"));
 
     final Executor exec;
-    final Reader reader;
-    final Writer writer;
+    final Reader<READER_IN, READER_OUT> reader;
+    final Writer<WRITER_IN, WRITER_OUT> writer;
 //    final SSLEngine engine;
     final String tubeName; // hack
 //    final CompletableFuture<String> alpnCF; // completes on initial handshake
@@ -124,8 +124,8 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      * for errors that need to be signaled from downstream to upstream.
      */
     public FlowDelegate(Executor exec,
-                        Subscriber<? super List<ByteBuffer>> downReader,
-                        Subscriber<? super List<ByteBuffer>> downWriter)
+                        Subscriber<? super READER_OUT> downReader,
+                        Subscriber<? super WRITER_IN> downWriter)
     {
         this.id = scount.getAndIncrement();
         this.tubeName = String.valueOf(downWriter);
@@ -200,8 +200,8 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      * @param downWriter  The right hand side write sink (typically
      *                    the SocketTube write subscriber).
      */
-    void connect(Subscriber<? super List<ByteBuffer>> downReader,
-                 Subscriber<? super List<ByteBuffer>> downWriter) {
+    void connect(Subscriber<? super READER_OUT> downReader,
+                 Subscriber<? super WRITER_IN> downWriter) {
         this.reader.subscribe(downReader);
         this.writer.subscribe(downWriter);
     }
@@ -264,12 +264,12 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      * Upstream subscription strategy is to try and keep no more than
      * TARGET_BUFSIZE bytes in readBuf
      */
-    final class Reader extends SubscriberWrapper implements FlowTube.TubeSubscriber {
+    final class Reader<READER_IN, READER_OUT> extends SubscriberWrapper<READER_IN, READER_OUT> implements FlowTube.TubeSubscriber<READER_IN> {
         // Maximum record size is 16k.
         // Because SocketTube can feeds us up to 3 16K buffers,
         // then setting this size to 16K means that the readBuf
         // can store up to 64K-1 (16K-1 + 3*16K)
-        static final int TARGET_BUFSIZE = 16 * 1024;
+//        static final int TARGET_BUFSIZE = 16 * 1024;
 
         final SequentialScheduler scheduler;
 //        volatile ByteBuffer readBuf;
@@ -309,71 +309,73 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
          * entry point for buffers delivered from upstream Subscriber
          */
         @Override
-        public void incoming(List<ByteBuffer> buffers, boolean complete) {
-            if (debugr.on())
-                debugr.log("Adding %d bytes to read buffer",
-                        Utils.remaining(buffers));
-            addToReadBuf(buffers, complete);
+        public void incoming(READER_IN in, boolean complete) {
+//        public void incoming(List<ByteBuffer> buffers, boolean complete) {
+//            if (debugr.on())
+//                debugr.log("Adding %d bytes to read buffer",
+//                        Utils.remaining(buffers));
+//            addToReadBuf(buffers, complete);
+            // todo do something with in data
             scheduler.runOrSchedule(exec);
         }
 
         @Override
         public String toString() {
-            return "READER: " + super.toString() + ", readBuf: " + readBuf.toString()
+            return "READER: " + super.toString()// + ", readBuf: " + readBuf.toString()
                     + ", count: " + count.toString() + ", scheduler: "
-                    + (scheduler.isStopped() ? "stopped" : "running")
-                    + ", status: " + lastUnwrapStatus;
+                    + (scheduler.isStopped() ? "stopped" : "running");
+//                    + ", status: " + lastUnwrapStatus;
         }
 
-        private void reallocReadBuf() {
-            int sz = readBuf.capacity();
-            ByteBuffer newb = ByteBuffer.allocate(sz * 2);
-            readBuf.flip();
-            Utils.copy(readBuf, newb);
-            readBuf = newb;
-        }
+//        private void reallocReadBuf() {
+//            int sz = readBuf.capacity();
+//            ByteBuffer newb = ByteBuffer.allocate(sz * 2);
+//            readBuf.flip();
+//            Utils.copy(readBuf, newb);
+//            readBuf = newb;
+//        }
 
         @Override
         protected long upstreamWindowUpdate(long currentWindow, long downstreamQsize) {
-            if (readBuf.remaining() > TARGET_BUFSIZE) {
-                if (debugr.on())
-                    debugr.log("readBuf has more than TARGET_BUFSIZE: %d",
-                            readBuf.remaining());
-                return 0;
-            } else {
+//            if (readBuf.remaining() > TARGET_BUFSIZE) {
+//                if (debugr.on())
+//                    debugr.log("readBuf has more than TARGET_BUFSIZE: %d",
+//                            readBuf.remaining());
+//                return 0;
+//            } else {
                 return super.upstreamWindowUpdate(currentWindow, downstreamQsize);
-            }
+//            }
         }
 
         // readBuf is kept ready for reading outside of this method
-        private void addToReadBuf(List<ByteBuffer> buffers, boolean complete) {
-            assert Utils.remaining(buffers) > 0 || buffers.isEmpty();
-            synchronized (readBufferLock) {
-                for (ByteBuffer buf : buffers) {
-                    readBuf.compact();
-                    while (readBuf.remaining() < buf.remaining())
-                        reallocReadBuf();
-                    readBuf.put(buf);
-                    readBuf.flip();
-                    // should be safe to call inside lock
-                    // since the only implementation
-                    // offers the buffer to an unbounded queue.
-                    // WARNING: do not touch buf after this point!
-                    if (recycler != null) recycler.accept(buf);
-                }
-                if (complete) {
-                    this.completing = complete;
-                    minBytesRequired = 0;
-                }
-            }
-        }
+//        private void addToReadBuf(List<ByteBuffer> buffers, boolean complete) {
+//            assert Utils.remaining(buffers) > 0 || buffers.isEmpty();
+//            synchronized (readBufferLock) {
+//                for (ByteBuffer buf : buffers) {
+//                    readBuf.compact();
+//                    while (readBuf.remaining() < buf.remaining())
+//                        reallocReadBuf();
+//                    readBuf.put(buf);
+//                    readBuf.flip();
+//                    // should be safe to call inside lock
+//                    // since the only implementation
+//                    // offers the buffer to an unbounded queue.
+//                    // WARNING: do not touch buf after this point!
+//                    if (recycler != null) recycler.accept(buf);
+//                }
+//                if (complete) {
+//                    this.completing = complete;
+//                    minBytesRequired = 0;
+//                }
+//            }
+//        }
 
         void schedule() {
             scheduler.runOrSchedule(exec);
         }
 
         void stop() {
-            if (debugr.on()) debugr.log("stop");
+            if (logger.isDebugEnabled()) logger.debug("stop");
             scheduler.stop();
         }
 
@@ -383,109 +385,109 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         // Usually this is 0, unless there was a buffer underflow.
         // In this case we need to wait for more bytes than what
         // we had before calling unwrap() again.
-        volatile int minBytesRequired;
+//        volatile int minBytesRequired;
 
         // work function where it all happens
         final void processData() {
             try {
-                if (debugr.on())
-                    debugr.log("processData:"
-                            + " readBuf remaining:" + readBuf.remaining()
-                            + ", state:" + states(handshakeState)
-                            + ", engine handshake status:" + engine.getHandshakeStatus());
-                int len;
-                boolean complete = false;
-                while (readBuf.remaining() > (len = minBytesRequired)) {
-                    boolean handshaking = false;
-                    try {
-                        EngineResult result;
-                        synchronized (readBufferLock) {
-                            complete = this.completing;
-                            if (debugr.on()) debugr.log("Unwrapping: %s", readBuf.remaining());
-                            // Unless there is a BUFFER_UNDERFLOW, we should try to
-                            // unwrap any number of bytes. Set minBytesRequired to 0:
-                            // we only need to do that if minBytesRequired is not already 0.
-                            len = len > 0 ? minBytesRequired = 0 : len;
-                            result = unwrapBuffer(readBuf);
-                            len = readBuf.remaining();
-                            if (debugr.on()) {
-                                debugr.log("Unwrapped: result: %s", result.result);
-                                debugr.log("Unwrapped: consumed: %s", result.bytesConsumed());
-                            }
-                        }
-                        if (result.bytesProduced() > 0) {
-                            if (debugr.on())
-                                debugr.log("sending %d", result.bytesProduced());
-                            count.addAndGet(result.bytesProduced());
-                            outgoing(result.destBuffer, false);
-                        }
-                        if (result.status() == Status.BUFFER_UNDERFLOW) {
-                            if (debugr.on()) debugr.log("BUFFER_UNDERFLOW");
-                            // not enough data in the read buffer...
-                            // no need to try to unwrap again unless we get more bytes
-                            // than minBytesRequired = len in the read buffer.
-                            synchronized (readBufferLock) {
-                                minBytesRequired = len;
-                                // more bytes could already have been added...
-                                assert readBuf.remaining() >= len;
-                                // check if we have received some data, and if so
-                                // we can just re-spin the loop
-                                if (readBuf.remaining() > len) continue;
-                                else if (this.completing) {
-                                    if (debug.on()) {
-                                        debugr.log("BUFFER_UNDERFLOW with EOF," +
-                                                " %d bytes non decrypted.", len);
-                                    }
-                                    // The channel won't send us any more data, and
-                                    // we are in underflow: we need to fail.
-                                    throw new IOException("BUFFER_UNDERFLOW with EOF, "
-                                            + len + " bytes non decrypted.");
-                                }
-                            }
-                            // request more data and return.
-                            requestMore();
-                            return;
-                        }
-                        if (complete && result.status() == Status.CLOSED) {
-                            if (debugr.on()) debugr.log("Closed: completing");
-                            outgoing(Utils.EMPTY_BB_LIST, true);
-                            return;
-                        }
-                        if (result.handshaking()) {
-                            handshaking = true;
-                            if (debugr.on()) debugr.log("handshaking");
-                            if (doHandshake(result, READER)) continue; // need unwrap
-                            else break; // doHandshake will have triggered the write scheduler if necessary
-                        } else {
-                            if ((handshakeState.getAndSet(NOT_HANDSHAKING) & ~DOING_TASKS) == HANDSHAKING) {
-                                handshaking = false;
-                                applicationBufferSize = engine.getSession().getApplicationBufferSize();
-                                packetBufferSize = engine.getSession().getPacketBufferSize();
-                                setALPN();
-                                resumeActivity();
-                            }
-                        }
-                    } catch (IOException ex) {
-                        errorCommon(ex);
-                        handleError(ex);
-                        return;
-                    }
-                    if (handshaking && !complete)
-                        return;
-                }
-                if (!complete) {
-                    synchronized (readBufferLock) {
-                        complete = this.completing && !readBuf.hasRemaining();
-                    }
-                }
-                if (complete) {
-                    if (debugr.on()) debugr.log("completing");
-                    // Complete the alpnCF, if not already complete, regardless of
-                    // whether or not the ALPN is available, there will be no more
-                    // activity.
-                    setALPN();
-                    outgoing(Utils.EMPTY_BB_LIST, true);
-                }
+//                if (debugr.on())
+//                    debugr.log("processData:"
+//                            + " readBuf remaining:" + readBuf.remaining()
+//                            + ", state:" + states(handshakeState)
+//                            + ", engine handshake status:" + engine.getHandshakeStatus());
+//                int len;
+//                boolean complete = false;
+//                while (readBuf.remaining() > (len = minBytesRequired)) {
+//                    boolean handshaking = false;
+//                    try {
+//                        EngineResult result;
+//                        synchronized (readBufferLock) {
+//                            complete = this.completing;
+//                            if (debugr.on()) debugr.log("Unwrapping: %s", readBuf.remaining());
+//                            // Unless there is a BUFFER_UNDERFLOW, we should try to
+//                            // unwrap any number of bytes. Set minBytesRequired to 0:
+//                            // we only need to do that if minBytesRequired is not already 0.
+//                            len = len > 0 ? minBytesRequired = 0 : len;
+//                            result = unwrapBuffer(readBuf);
+//                            len = readBuf.remaining();
+//                            if (debugr.on()) {
+//                                debugr.log("Unwrapped: result: %s", result.result);
+//                                debugr.log("Unwrapped: consumed: %s", result.bytesConsumed());
+//                            }
+//                        }
+//                        if (result.bytesProduced() > 0) {
+//                            if (debugr.on())
+//                                debugr.log("sending %d", result.bytesProduced());
+//                            count.addAndGet(result.bytesProduced());
+//                            outgoing(result.destBuffer, false);
+//                        }
+//                        if (result.status() == Status.BUFFER_UNDERFLOW) {
+//                            if (debugr.on()) debugr.log("BUFFER_UNDERFLOW");
+//                            // not enough data in the read buffer...
+//                            // no need to try to unwrap again unless we get more bytes
+//                            // than minBytesRequired = len in the read buffer.
+//                            synchronized (readBufferLock) {
+//                                minBytesRequired = len;
+//                                // more bytes could already have been added...
+//                                assert readBuf.remaining() >= len;
+//                                // check if we have received some data, and if so
+//                                // we can just re-spin the loop
+//                                if (readBuf.remaining() > len) continue;
+//                                else if (this.completing) {
+//                                    if (debug.on()) {
+//                                        debugr.log("BUFFER_UNDERFLOW with EOF," +
+//                                                " %d bytes non decrypted.", len);
+//                                    }
+//                                    // The channel won't send us any more data, and
+//                                    // we are in underflow: we need to fail.
+//                                    throw new IOException("BUFFER_UNDERFLOW with EOF, "
+//                                            + len + " bytes non decrypted.");
+//                                }
+//                            }
+//                            // request more data and return.
+//                            requestMore();
+//                            return;
+//                        }
+//                        if (complete && result.status() == Status.CLOSED) {
+//                            if (debugr.on()) debugr.log("Closed: completing");
+//                            outgoing(Utils.EMPTY_BB_LIST, true);
+//                            return;
+//                        }
+//                        if (result.handshaking()) {
+//                            handshaking = true;
+//                            if (debugr.on()) debugr.log("handshaking");
+//                            if (doHandshake(result, READER)) continue; // need unwrap
+//                            else break; // doHandshake will have triggered the write scheduler if necessary
+//                        } else {
+//                            if ((handshakeState.getAndSet(NOT_HANDSHAKING) & ~DOING_TASKS) == HANDSHAKING) {
+//                                handshaking = false;
+//                                applicationBufferSize = engine.getSession().getApplicationBufferSize();
+//                                packetBufferSize = engine.getSession().getPacketBufferSize();
+//                                setALPN();
+//                                resumeActivity();
+//                            }
+//                        }
+//                    } catch (IOException ex) {
+//                        errorCommon(ex);
+//                        handleError(ex);
+//                        return;
+//                    }
+//                    if (handshaking && !complete)
+//                        return;
+//                }
+//                if (!complete) {
+//                    synchronized (readBufferLock) {
+//                        complete = this.completing && !readBuf.hasRemaining();
+//                    }
+//                }
+//                if (complete) {
+//                    if (debugr.on()) debugr.log("completing");
+//                    // Complete the alpnCF, if not already complete, regardless of
+//                    // whether or not the ALPN is available, there will be no more
+//                    // activity.
+//                    setALPN();
+//                    outgoing(Utils.EMPTY_BB_LIST, true);
+//                }
             } catch (Throwable ex) {
                 errorCommon(ex);
                 handleError(ex);
@@ -652,7 +654,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      *     BUFFER_UNDERFLOW: shouldn't happen on writing side
      *     OK: return generated buffers
      */
-    class Writer extends SubscriberWrapper {
+    class Writer<WRITER_IN, WRITER_OUT> extends SubscriberWrapper<WRITER_IN, WRITER_OUT> {
         final SequentialScheduler scheduler;
         // queues of buffers received from upstream waiting
         // to be processed by the SSLEngine
@@ -672,9 +674,10 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         }
 
         @Override
-        protected void incoming(List<ByteBuffer> buffers, boolean complete) {
-            assert complete ? buffers == Utils.EMPTY_BB_LIST : true;
-            assert buffers != Utils.EMPTY_BB_LIST ? complete == false : true;
+        protected void incoming(WRITER_IN in, boolean complete) {
+//        protected void incoming(List<ByteBuffer> buffers, boolean complete) {
+//            assert complete ? buffers == Utils.EMPTY_BB_LIST : true;
+//            assert buffers != Utils.EMPTY_BB_LIST ? complete == false : true;
             if (complete) {
                 if (debugw.on()) debugw.log("adding SENTINEL");
                 completing = true;
@@ -824,9 +827,9 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         // then we copy off the bytes to a smaller buffer that we send
         // downstream. Otherwise, we send the writeBuffer downstream
         // and will allocate a new one next time.
-        volatile ByteBuffer writeBuffer;
-        private volatile Status lastWrappedStatus;
-        @SuppressWarnings("fallthrough")
+//        volatile ByteBuffer writeBuffer;
+//        private volatile Status lastWrappedStatus;
+//        @SuppressWarnings("fallthrough")
 //        EngineResult wrapBuffers(ByteBuffer[] src) throws SSLException {
 //            long len = Utils.remaining(src);
 //            if (debugw.on())
@@ -910,8 +913,8 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         public String toString() {
             return "WRITER: " + super.toString()
                     + ", writeList size: " + Integer.toString(writeList.size())
-                    + ", scheduler: " + (scheduler.isStopped() ? "stopped" : "running")
-                    + ", status: " + lastWrappedStatus;
+                    + ", scheduler: " + (scheduler.isStopped() ? "stopped" : "running");
+//                    + ", status: " + lastWrappedStatus
                     //" writeList: " + writeList.toString();
         }
     }
@@ -1131,7 +1134,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      * This flow must be given the encrypted data read from upstream (eg socket)
      * before it is decrypted.
      */
-    public Subscriber<List<ByteBuffer>> upstreamReader() {
+    public Subscriber<READER_IN> upstreamReader() {
         return reader;
     }
 
@@ -1139,7 +1142,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      * Returns the upstream Flow.Subscriber of the writing (outgoing) side.
      * This flow contains the plaintext data before it is encrypted.
      */
-    public Subscriber<List<ByteBuffer>> upstreamWriter() {
+    public Subscriber<WRITER_OUT> upstreamWriter() {
         return writer;
     }
 
