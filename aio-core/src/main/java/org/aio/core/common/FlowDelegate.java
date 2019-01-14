@@ -71,11 +71,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  *
  *                         +------------------+
- *        upstreamWriter   |                  | downWriter
+ *        IN READER        |                  | OUT READER
  *        ---------------> |                  | ------------>
  *  obtained from this     |                  | supplied to constructor
  *                         |   FlowDelegate   |
- *        downReader       |                  | upstreamReader
+ *        OUT WRITER       |                  | IN WRITER
  *        <--------------- |                  | <--------------
  * supplied to constructor |                  | obtained from this
  *                         +------------------+
@@ -118,7 +118,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      */
     public FlowDelegate(Executor exec,
                         Subscriber<? super READER_OUT> downReader,
-                        Subscriber<? super WRITER_IN> downWriter)
+                        Subscriber<? super WRITER_OUT> downWriter)
     {
         this.id = scount.getAndIncrement();
         this.tubeName = String.valueOf(downWriter);
@@ -194,7 +194,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      *                    the SocketTube write subscriber).
      */
     void connect(Subscriber<? super READER_OUT> downReader,
-                 Subscriber<? super WRITER_IN> downWriter) {
+                 Subscriber<? super WRITER_OUT> downWriter) {
         this.reader.subscribe(downReader);
         this.writer.subscribe(downWriter);
     }
@@ -672,16 +672,16 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
 //            assert complete ? buffers == Utils.EMPTY_BB_LIST : true;
 //            assert buffers != Utils.EMPTY_BB_LIST ? complete == false : true;
             if (complete) {
-                if (debugw.on()) debugw.log("adding SENTINEL");
+                if (logger.isDebugEnabled()) logger.debug("adding SENTINEL");
                 completing = true;
-                writeList.add(SENTINEL);
+//                writeList.add(SENTINEL);
             } else {
-                writeList.addAll(buffers);
+//                writeList.addAll(buffers);
             }
-            if (debugw.on())
-                debugw.log("added " + buffers.size()
-                           + " (" + Utils.remaining(buffers)
-                           + " bytes) to the writeList");
+//            if (debugw.on())
+//                debugw.log("added " + buffers.size()
+//                           + " (" + Utils.remaining(buffers)
+//                           + " bytes) to the writeList");
             scheduler.runOrSchedule();
         }
 
@@ -690,8 +690,8 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         }
 
         protected void onSubscribe() {
-            if (debugw.on()) debugw.log("onSubscribe initiating handshaking");
-            addData(HS_TRIGGER);  // initiates handshaking
+            if (logger.isDebugEnabled()) logger.debug("onSubscribe initiating handshaking");
+//            addData(HS_TRIGGER);  // initiates handshaking
         }
 
         void schedule() {
@@ -699,7 +699,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         }
 
         void stop() {
-            if (debugw.on()) debugw.log("stop");
+            if (logger.isDebugEnabled()) logger.debug("stop");
             scheduler.stop();
         }
 
@@ -720,23 +720,23 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
                 return super.upstreamWindowUpdate(currentWindow, downstreamQsize);
         }
 
-        private boolean hsTriggered() {
-            synchronized(writeList) {
-                for (ByteBuffer b : writeList)
-                    if (b == HS_TRIGGER)
-                        return true;
-                return false;
-            }
-        }
-
-        void triggerWrite() {
-            synchronized (writeList) {
-                if (writeList.isEmpty()) {
-                    writeList.add(HS_TRIGGER);
-                }
-            }
-            scheduler.runOrSchedule();
-        }
+//        private boolean hsTriggered() {
+//            synchronized(writeList) {
+//                for (ByteBuffer b : writeList)
+//                    if (b == HS_TRIGGER)
+//                        return true;
+//                return false;
+//            }
+//        }
+//
+//        void triggerWrite() {
+//            synchronized (writeList) {
+//                if (writeList.isEmpty()) {
+//                    writeList.add(HS_TRIGGER);
+//                }
+//            }
+//            scheduler.runOrSchedule();
+//        }
 
         private void processData() {
             boolean completing = isCompleting();
