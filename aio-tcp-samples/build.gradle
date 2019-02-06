@@ -10,8 +10,10 @@ plugins {
     id 'application'
 }
 
-ext.moduleName='aio.tcp.samples'
-ext.log4j2Version='2.11.1'
+ext {
+    moduleName='aio.tcp.samples'
+    log4j2Version='2.11.1'
+}
 
 dependencies {
     implementation(project(':aio-core'))
