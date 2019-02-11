@@ -6,6 +6,17 @@
  * file that accompanied this code.
  */
 
+buildscript {
+    ext {
+        slf4j_version = '1.8.0-beta2'
+        junit_version = '5.4.0'
+        assertj_version = '3.11.1'
+    }
+    repositories {
+        mavenCentral()
+    }
+}
+
 println("Using Gradle version: $gradle.gradleVersion")
 
 group 'org.aio'
@@ -22,11 +33,11 @@ subprojects {
     }
 
     dependencies {
-        implementation('org.slf4j:slf4j-api:1.8.0-beta2')
-        testImplementation('org.junit.jupiter:junit-jupiter-api:5.3.2')
-        testImplementation('org.junit.jupiter:junit-jupiter-params:5.3.2')
-        testImplementation('org.assertj:assertj-core:3.11.1')
-        testRuntimeOnly ('org.junit.jupiter:junit-jupiter-engine:5.3.2')
+        implementation("org.slf4j:slf4j-api:$slf4j_version")
+        testImplementation("org.junit.jupiter:junit-jupiter-api:$junit_version")
+        testImplementation("org.junit.jupiter:junit-jupiter-params:$junit_version")
+        testImplementation("org.assertj:assertj-core:$assertj_version")
+        testRuntimeOnly ("org.junit.jupiter:junit-jupiter-engine:$junit_version")
     }
 
     test {
