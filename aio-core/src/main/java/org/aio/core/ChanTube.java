@@ -1215,7 +1215,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube<List<ByteBuff
         return "ChanTube("+id+")";
     }
 
-    private final String channelDescr() {
+    private String channelDescr() {
         return String.valueOf(chan);
     }
 }
