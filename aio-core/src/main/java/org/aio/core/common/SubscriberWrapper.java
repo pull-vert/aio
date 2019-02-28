@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 AIO's author : Frédéric Montariol
+ * Copyright (c) 2018-2019 AIO's author : Fred Montariol
  *
  * Use of this source code is governed by the GNU General Public License v2.0,
  * and is subject to the "Classpath" exception as provided in the LICENSE
@@ -182,13 +182,13 @@ public abstract class SubscriberWrapper<IN, OUT>
     /**
      * Override this if anything needs to be done before checking for error
      * and processing the input queue.
-     * @return
+     * @return a SchedulingAction
      */
     private SchedulingAction enterScheduling() {
         return SchedulingAction.CONTINUE;
     }
 
-    protected boolean signalScheduling() {
+    boolean signalScheduling() {
         if (downstreamCompleted || pushScheduler.isStopped()) {
             return false;
         }
@@ -242,7 +242,7 @@ public abstract class SubscriberWrapper<IN, OUT>
      * CompletableFuture completes exceptionally. Exceptional completion
      * also occurs if downstreamCF completes exceptionally.
      */
-    public CompletableFuture<Void> completion() {
+    CompletableFuture<Void> completion() {
         return cf;
     }
 
@@ -446,23 +446,21 @@ public abstract class SubscriberWrapper<IN, OUT>
         cf.complete(null);
     }
 
-    public void resetDownstreamDemand() {
+    void resetDownstreamDemand() {
         downstreamSubscription.demand.reset();
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("SubscriberWrapper:")
-          .append(" upstreamCompleted: ").append(Boolean.toString(upstreamCompleted))
-          .append(" upstreamWindow: ").append(upstreamWindow.toString())
-          .append(" downstreamCompleted: ").append(Boolean.toString(downstreamCompleted))
-          .append(" completionAcknowledged: ").append(Boolean.toString(completionAcknowledged))
-          .append(" outputQ size: ").append(Integer.toString(outputQ.size()))
-          //.append(" outputQ: ").append(outputQ.toString())
-          .append(" cf: ").append(cf.toString())
-          .append(" downstreamSubscription: ").append(downstreamSubscription.toString());
 
-        return sb.toString();
+        return "SubscriberWrapper:" +
+                " upstreamCompleted: " + upstreamCompleted +
+                " upstreamWindow: " + upstreamWindow.toString() +
+                " downstreamCompleted: " + downstreamCompleted +
+                " completionAcknowledged: " + completionAcknowledged +
+                " outputQ size: " + outputQ.size() +
+                //.append(" outputQ: ").append(outputQ.toString())
+                " cf: " + cf.toString() +
+                " downstreamSubscription: " + downstreamSubscription.toString();
     }
 }

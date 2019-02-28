@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 AIO's author : Frédéric Montariol
+ * Copyright (c) 2018-2019 AIO's author : Fred Montariol
  *
  * Use of this source code is governed by the GNU General Public License v2.0,
  * and is subject to the "Classpath" exception as provided in the LICENSE
@@ -103,7 +103,7 @@ public abstract class TcpConnection implements Closeable {
     @Override
     public abstract void close();
 
-    abstract FlowTube getConnectionFlow();
+    abstract FlowTube<List<ByteBuffer>, List<ByteBuffer>> getConnectionFlow();
 
     interface TcpPublisher extends FlowTube.TubePublisher<List<ByteBuffer>> {
         void enqueue(List<ByteBuffer> buffers) throws IOException;
@@ -238,7 +238,7 @@ public abstract class TcpConnection implements Closeable {
 
     private String dbgTag;
     final String dbgString() {
-        FlowTube flow = getConnectionFlow();
+        FlowTube<List<ByteBuffer>, List<ByteBuffer>> flow = getConnectionFlow();
         String tag = dbgTag;
         if (tag == null && flow != null) {
             dbgTag = tag = this.getClass().getSimpleName() + "(" + flow + ")";
@@ -269,7 +269,7 @@ public abstract class TcpConnection implements Closeable {
         }
     }
 
-    void shutdown(Throwable t) {
+    private void shutdown(Throwable t) {
         if (logger.isDebugEnabled()) logger.debug("Shutting down tcp (closed="+closed+"): " + t);
         if (closed) return;
         synchronized (this) {

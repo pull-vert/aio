@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 AIO's author : Frédéric Montariol
+ * Copyright (c) 2018-2019 AIO's author : Fred Montariol
  *
  * Use of this source code is governed by the GNU General Public License v2.0,
  * and is subject to the "Classpath" exception as provided in the LICENSE
@@ -78,7 +78,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     }
 
     /**
-     * @author Frédéric Montariol
+     * @author Fred Montariol
      */
     public abstract static class StagesConfigurer implements ServerOrClientAPI.StagesConfigurer {
 
@@ -530,7 +530,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
         }
 
         @SuppressWarnings("unchecked")
-        void eventUpdated(AsyncEvent<T> e) throws ClosedChannelException {
+        void eventUpdated(AsyncEvent<T> e) {
             // if in this selector event loop thread
             if (Thread.currentThread() == this) {
                 SelectionKey key = e.getChan().keyFor(selector);

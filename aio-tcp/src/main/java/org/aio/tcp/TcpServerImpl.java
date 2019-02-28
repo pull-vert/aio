@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 AIO's author : Frédéric Montariol
+ * Copyright (c) 2018-2019 AIO's author : Fred Montariol
  *
  * Use of this source code is governed by the GNU General Public License v2.0,
  * and is subject to the "Classpath" exception as provided in the LICENSE
@@ -51,7 +51,9 @@ import javax.net.ssl.SSLParameters;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -280,13 +282,13 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     }
 
     private void connectFlows(TcpConnection tcpConnection) {
-        FlowTube tube =  tcpConnection.getConnectionFlow();
+        FlowTube<List<ByteBuffer>, List<ByteBuffer>> tube =  tcpConnection.getConnectionFlow();
         // Connect the flow to our TcpTubeSubscriber:
         tube.connectFlows(tcpConnection.getPublisher(), tcpConnection.getSubscriber());
     }
 
     /**
-     * @author Frédéric Montariol
+     * @author Fred Montariol
      */
     public class SocketChanManager extends Thread {
 

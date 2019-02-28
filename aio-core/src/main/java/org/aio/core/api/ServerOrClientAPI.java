@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 AIO's author : Frédéric Montariol
+ * Copyright (c) 2018-2019 AIO's author : Fred Montariol
  *
  * Use of this source code is governed by the GNU General Public License v2.0,
  * and is subject to the "Classpath" exception as provided in the LICENSE
@@ -101,7 +101,7 @@ public interface ServerOrClientAPI {
     /**
      * Configurer for first {@linkplain ChanStages stage} of the Chan
      *
-     * @author Frédéric Montariol
+     * @author Fred Montariol
      */
     @FunctionalInterface
     public static interface FirstStagesConfigurer {
@@ -124,7 +124,7 @@ public interface ServerOrClientAPI {
      * Provide the {@link #build()} method that instanciate the server
      * or client
      *
-     * @author Frédéric Montariol
+     * @author Fred Montariol
      */
     public static interface StagesConfigurer {
 

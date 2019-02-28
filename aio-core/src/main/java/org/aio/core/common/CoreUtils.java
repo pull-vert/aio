@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 AIO's author : Frédéric Montariol
+ * Copyright (c) 2018-2019 AIO's author : Fred Montariol
  *
  * Use of this source code is governed by the GNU General Public License v2.0,
  * and is subject to the "Classpath" exception as provided in the LICENSE
@@ -93,7 +93,7 @@ public final class CoreUtils {
         return ByteBuffer.allocate(BUFSIZE);
     }
 
-    public static Throwable getCompletionCause(Throwable x) {
+    static Throwable getCompletionCause(Throwable x) {
         if (!(x instanceof CompletionException)
                 && !(x instanceof ExecutionException)) return x;
         final Throwable cause = x.getCause();
@@ -144,7 +144,7 @@ public final class CoreUtils {
 
     public static String stackTrace(Throwable t) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        String s = null;
+        String s;
         try {
             PrintStream p = new PrintStream(bos, true, "US-ASCII");
             t.printStackTrace(p);
@@ -264,7 +264,7 @@ public final class CoreUtils {
     // Put all these static 'empty' singletons here
     public static final ByteBuffer EMPTY_BYTEBUFFER = ByteBuffer.allocate(0);
     public static final ByteBuffer[] EMPTY_BB_ARRAY = new ByteBuffer[0];
-    public static final List<ByteBuffer> EMPTY_BB_LIST = List.of();
+    static final List<ByteBuffer> EMPTY_BB_LIST = List.of();
 
     /**
      * Returns a slice of size {@code amount} from the given buffer. If the
