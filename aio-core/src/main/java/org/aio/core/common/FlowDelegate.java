@@ -266,8 +266,8 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
 
         final SequentialScheduler scheduler;
 //        volatile ByteBuffer readBuf;
-        volatile boolean completing;
-        final Object readBufferLock = new Object();
+//        volatile boolean completing;
+//        final Object readBufferLock = new Object();
         private final Logger logger = LoggerFactory.getLogger(Reader.class);
 
         private final class ReaderDownstreamPusher implements Runnable {
@@ -651,7 +651,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         final SequentialScheduler scheduler;
         // queues of buffers received from upstream waiting
         // to be processed by the SSLEngine
-        final List<ByteBuffer> writeList;
+        final List<WRITER_IN> writeList;
         private final Logger logger = LoggerFactory.getLogger(Writer.class);
         volatile boolean completing;
         boolean completed; // only accessed in processData
@@ -676,7 +676,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
                 completing = true;
 //                writeList.add(SENTINEL);
             } else {
-//                writeList.addAll(buffers);
+                writeList.add(in);
             }
 //            if (debugw.on())
 //                debugw.log("added " + buffers.size()
@@ -686,7 +686,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         }
 
         public final String dbgString() {
-            return "SSL Writer(" + tubeName + ")";
+            return "Flow Delegate Writer(" + tubeName + ")";
         }
 
         protected void onSubscribe() {
@@ -742,12 +742,12 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
             boolean completing = isCompleting();
 
             try {
-                if (debugw.on())
-                    debugw.log("processData, writeList remaining:"
-                                + Utils.remaining(writeList) + ", hsTriggered:"
-                                + hsTriggered() + ", needWrap:" + needWrap());
+//                if (logger.isDebugEnabled())
+//                    (logger.debug("processData, writeList remaining:"
+//                                + CoreUtils.remaining(writeList) + ", hsTriggered:"
+//                                + hsTriggered() + ", needWrap:" + needWrap());
 
-                while (Utils.remaining(writeList) > 0 || hsTriggered() || needWrap()) {
+                while (CoreUtils.remaining(writeList) > 0 || hsTriggered() || needWrap()) {
                     ByteBuffer[] outbufs = writeList.toArray(Utils.EMPTY_BB_ARRAY);
                     EngineResult result = wrapBuffers(outbufs);
                     if (debugw.on())
@@ -795,7 +795,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
                     if (!completed) {
                         completed = true;
                         writeList.clear();
-                        outgoing(Utils.EMPTY_BB_LIST, true);
+                        outgoing(CoreUtils.EMPTY_BB_LIST, true);
                     }
                     return;
                 }
@@ -1135,7 +1135,7 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
      * Returns the upstream Flow.Subscriber of the writing (outgoing) side.
      * This flow contains the plaintext data before it is encrypted.
      */
-    public Subscriber<WRITER_OUT> upstreamWriter() {
+    public Subscriber<WRITER_IN> upstreamWriter() {
         return writer;
     }
 
