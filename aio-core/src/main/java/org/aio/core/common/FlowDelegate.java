@@ -705,7 +705,8 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
 
         @Override
         public boolean closing() {
-            return closeNotifyReceived();
+            return false; // todo do something
+//            return closeNotifyReceived();
         }
 
         private boolean isCompleting() {
@@ -741,71 +742,71 @@ public class FlowDelegate<WRITER_IN, WRITER_OUT, READER_IN, READER_OUT> {
         private void processData() {
             boolean completing = isCompleting();
 
-            try {
+//            try {
 //                if (logger.isDebugEnabled())
 //                    (logger.debug("processData, writeList remaining:"
 //                                + CoreUtils.remaining(writeList) + ", hsTriggered:"
 //                                + hsTriggered() + ", needWrap:" + needWrap());
-
-                while (CoreUtils.remaining(writeList) > 0 || hsTriggered() || needWrap()) {
-                    ByteBuffer[] outbufs = writeList.toArray(Utils.EMPTY_BB_ARRAY);
-                    EngineResult result = wrapBuffers(outbufs);
-                    if (debugw.on())
-                        debugw.log("wrapBuffer returned %s", result.result);
-
-                    if (result.status() == Status.CLOSED) {
-                        if (!upstreamCompleted) {
-                            upstreamCompleted = true;
-                            upstreamSubscription.cancel();
-                        }
-                        if (result.bytesProduced() <= 0)
-                            return;
-
-                        if (!completing && !completed) {
-                            completing = this.completing = true;
-                            // There could still be some outgoing data in outbufs.
-                            writeList.add(SENTINEL);
-                        }
-                    }
-
-                    boolean handshaking = false;
-                    if (result.handshaking()) {
-                        if (debugw.on()) debugw.log("handshaking");
-                        doHandshake(result, WRITER);  // ok to ignore return
-                        handshaking = true;
-                    } else {
-                        if ((handshakeState.getAndSet(NOT_HANDSHAKING) & ~DOING_TASKS) == HANDSHAKING) {
-                            applicationBufferSize = engine.getSession().getApplicationBufferSize();
-                            packetBufferSize = engine.getSession().getPacketBufferSize();
-                            setALPN();
-                            resumeActivity();
-                        }
-                    }
-                    cleanList(writeList); // tidy up the source list
-                    sendResultBytes(result);
-                    if (handshaking) {
-                        if (!completing && needWrap()) {
-                            continue;
-                        } else {
-                            return;
-                        }
-                    }
-                }
-                if (completing && Utils.remaining(writeList) == 0) {
-                    if (!completed) {
-                        completed = true;
-                        writeList.clear();
-                        outgoing(CoreUtils.EMPTY_BB_LIST, true);
-                    }
-                    return;
-                }
-                if (writeList.isEmpty() && needWrap()) {
-                    writer.addData(HS_TRIGGER);
-                }
-            } catch (Throwable ex) {
-                errorCommon(ex);
-                handleError(ex);
-            }
+//
+//                while (CoreUtils.remaining(writeList) > 0 || hsTriggered() || needWrap()) {
+//                    ByteBuffer[] outbufs = writeList.toArray(Utils.EMPTY_BB_ARRAY);
+//                    EngineResult result = wrapBuffers(outbufs);
+//                    if (debugw.on())
+//                        debugw.log("wrapBuffer returned %s", result.result);
+//
+//                    if (result.status() == Status.CLOSED) {
+//                        if (!upstreamCompleted) {
+//                            upstreamCompleted = true;
+//                            upstreamSubscription.cancel();
+//                        }
+//                        if (result.bytesProduced() <= 0)
+//                            return;
+//
+//                        if (!completing && !completed) {
+//                            completing = this.completing = true;
+//                            // There could still be some outgoing data in outbufs.
+//                            writeList.add(SENTINEL);
+//                        }
+//                    }
+//
+//                    boolean handshaking = false;
+//                    if (result.handshaking()) {
+//                        if (debugw.on()) debugw.log("handshaking");
+//                        doHandshake(result, WRITER);  // ok to ignore return
+//                        handshaking = true;
+//                    } else {
+//                        if ((handshakeState.getAndSet(NOT_HANDSHAKING) & ~DOING_TASKS) == HANDSHAKING) {
+//                            applicationBufferSize = engine.getSession().getApplicationBufferSize();
+//                            packetBufferSize = engine.getSession().getPacketBufferSize();
+//                            setALPN();
+//                            resumeActivity();
+//                        }
+//                    }
+//                    cleanList(writeList); // tidy up the source list
+//                    sendResultBytes(result);
+//                    if (handshaking) {
+//                        if (!completing && needWrap()) {
+//                            continue;
+//                        } else {
+//                            return;
+//                        }
+//                    }
+//                }
+//                if (completing && Utils.remaining(writeList) == 0) {
+//                    if (!completed) {
+//                        completed = true;
+//                        writeList.clear();
+//                        outgoing(CoreUtils.EMPTY_BB_LIST, true);
+//                    }
+//                    return;
+//                }
+//                if (writeList.isEmpty() && needWrap()) {
+//                    writer.addData(HS_TRIGGER);
+//                }
+//            } catch (Throwable ex) {
+//                errorCommon(ex);
+//                handleError(ex);
+//            }
         }
 
         // The SSLEngine insists on being given a buffer that is at least
