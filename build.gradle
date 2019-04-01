@@ -9,8 +9,8 @@
 buildscript {
     ext {
         slf4j_version = '1.8.0-beta4'
-        junit_version = '5.4.0'
-        assertj_version = '3.12.0'
+        junit_version = '5.4.1'
+        assertj_version = '3.12.2'
     }
     repositories {
         mavenCentral()
@@ -64,6 +64,6 @@ subprojects {
 
 // execute ./gradlew wrapper then remove .gradle directory when version change
 wrapper {
-    gradleVersion='5.2.1'
+    gradleVersion='5.3.1'
     distributionType=Wrapper.DistributionType.ALL
 }
