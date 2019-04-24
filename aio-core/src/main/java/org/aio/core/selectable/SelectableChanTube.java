@@ -233,7 +233,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
      */
     private static abstract class SelectableChannelFlowEvent<T extends SelectableChan> extends AsyncEvent<T> {
 
-        final Logger logger = LoggerFactory.getLogger(SelectableChannelFlowEvent.class);
+        private final Logger logger = LoggerFactory.getLogger(SelectableChannelFlowEvent.class);
 
         final T chan;
         final int defaultInterest;

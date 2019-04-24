@@ -329,7 +329,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
      * connection.
      */
     static class SelectorAttachment<T extends SelectableChan> {
-        final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
+        private final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
 
         private final T chan;
         private final Selector selector;
@@ -487,7 +487,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
      */
     protected final static class SelectorManager<T extends SelectableChan> extends Thread {
 
-        final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
+        private final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
 
         // For testing purposes we have an internal System property that
         // can control the frequency at which the selector manager will wake
