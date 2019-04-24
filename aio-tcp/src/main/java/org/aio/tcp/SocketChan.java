@@ -68,8 +68,4 @@ public final class SocketChan extends SelectableChan<SocketChannel> {
     <T> T getOption(SocketOption<T> name) throws IOException {
         return socketChannel.getOption(name);
     }
-
-    void close() throws IOException {
-        socketChannel.close();
-    }
 }

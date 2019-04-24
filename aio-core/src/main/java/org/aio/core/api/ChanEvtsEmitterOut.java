@@ -8,8 +8,6 @@
 
 package org.aio.core.api;
 
-import org.aio.core.selectable.SelectableChan;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -31,7 +29,7 @@ public interface ChanEvtsEmitterOut<OUT> {
 //    public CompletionStage<Void> closeForReceive();
 
     /**
-     * Request to close the {@link SelectableChan} and notify the {@link CompletionStage} once the operation completes
+     * Request to close the {@link org.aio.core.Chan} and notify the {@link CompletionStage} once the operation completes
      */
     public CompletionStage<Void> closeChan();
 }
