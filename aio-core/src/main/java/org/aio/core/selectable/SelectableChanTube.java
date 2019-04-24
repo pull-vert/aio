@@ -58,14 +58,14 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * A ChanTube implementation is a terminal tube plugged directly into the {@link SelectableChan}
+ * A SelectableChanTube implementation is a terminal tube plugged directly into the {@link SelectableChan}
  * <br>
- * The read subscriber should call {@code subscribe} on the ChanTube before
- * the ChanTube is subscribed to the write publisher.
+ * The read subscriber should call {@code subscribe} on the SelectableChanTube before
+ * the SelectableChanTube is subscribed to the write publisher.
  */
-public abstract class ChanTube<T extends SelectableChan> implements FlowTube<List<ByteBuffer>, List<ByteBuffer>> {
+public abstract class SelectableChanTube<T extends SelectableChan> implements FlowTube<List<ByteBuffer>, List<ByteBuffer>> {
 
-    private final Logger logger = LoggerFactory.getLogger(ChanTube.class);
+    private final Logger logger = LoggerFactory.getLogger(SelectableChanTube.class);
     private static final AtomicLong IDS = new AtomicLong();
 
     private final SelectableServerOrClient<T> serverOrClient;
@@ -76,7 +76,7 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
     private final InternalWriteSubscriber writeSubscriber;
     protected final long id = IDS.incrementAndGet();
 
-    public ChanTube(SelectableServerOrClient<T> serverOrClient, T chan) {
+    public SelectableChanTube(SelectableServerOrClient<T> serverOrClient, T chan) {
         this.serverOrClient = serverOrClient;
         this.chan = chan;
 
@@ -446,8 +446,8 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
         // A repeatable WriteEvent which is paused after firing and can
         // be resumed if required - see SelectableChannelFlowEvent;
         final class WriteEvent extends SelectableChannelFlowEvent<T> {
-            final ChanTube.InternalWriteSubscriber sub;
-            WriteEvent(T chan, ChanTube.InternalWriteSubscriber sub) {
+            final SelectableChanTube.InternalWriteSubscriber sub;
+            WriteEvent(T chan, SelectableChanTube.InternalWriteSubscriber sub) {
                 super(SelectionKey.OP_WRITE, chan);
                 this.sub = sub;
             }
@@ -491,7 +491,7 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
             }
 
             void dropSubscription() {
-                synchronized (ChanTube.InternalWriteSubscriber.this) {
+                synchronized (SelectableChanTube.InternalWriteSubscriber.this) {
                     cancelled = true;
                     if (logger.isDebugEnabled()) logger.debug("write: resetting demand to 0");
                     writeDemand.reset();
@@ -505,7 +505,7 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
                     long d;
                     // don't fiddle with demand after cancel.
                     // see dropSubscription.
-                    synchronized (ChanTube.InternalWriteSubscriber.this) {
+                    synchronized (SelectableChanTube.InternalWriteSubscriber.this) {
                         if (cancelled) return;
                         d = writeDemand.get();
                         requestMore = writeDemand.increaseIfFulfilled();
@@ -1055,7 +1055,7 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
             buf.limit(limit);
 
             // add the buffer to the list
-            return ChanTube.listOf(list, slice.asReadOnlyBuffer());
+            return SelectableChanTube.listOf(list, slice.asReadOnlyBuffer());
         }
     }
 
@@ -1211,7 +1211,7 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
     }
 
     private String dbgString() {
-        return "ChanTube("+id+")";
+        return "SelectableChanTube("+id+")";
     }
 
     private String channelDescr() {

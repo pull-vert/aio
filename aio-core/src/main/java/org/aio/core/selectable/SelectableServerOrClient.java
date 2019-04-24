@@ -803,7 +803,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
 
         private final Logger logger = LoggerFactory.getLogger(SSLDirectBufferSupplier.class);
 
-        private static final int POOL_SIZE = ChanTube.MAX_BUFFERS;
+        private static final int POOL_SIZE = SelectableChanTube.MAX_BUFFERS;
         private final ByteBuffer[] pool = new ByteBuffer[POOL_SIZE];
         private final SelectableServerOrClient<T> serverOrClient;
         private int tail, count; // no need for volatile: only accessed in SM thread.
@@ -820,7 +820,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
             ByteBuffer buf;
             if (tail == 0) {
                 if (logger.isDebugEnabled()) {
-                    // should not appear more than ChanTube.MAX_BUFFERS
+                    // should not appear more than SelectableChanTube.MAX_BUFFERS
                     logger.debug("ByteBuffer.allocateDirect({})", CoreUtils.BUFSIZE);
                 }
                 count++;

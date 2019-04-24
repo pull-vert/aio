@@ -40,7 +40,7 @@ package org.aio.tcp;
 
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.api.FlowTube;
-import org.aio.core.selectable.ChanTube;
+import org.aio.core.selectable.SelectableChanTube;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,13 +50,13 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * SocketChanTube is a ChanTube implementation. It is a terminal tube plugged directly
+ * SocketChanTube is a SelectableChanTube implementation. It is a terminal tube plugged directly
  * into the {@linkplain java.nio.channels.SocketChannel TCP Socket Channel}
  * <br>
  * The read subscriber should call {@code subscribe} on the SocketChanTube before
  * the SocketChanTube is subscribed to the write getPublisher.
  */
-public class SocketChanTube extends ChanTube<SocketChan> {
+public class SocketChanTube extends SelectableChanTube<SocketChan> {
 
     private final Logger logger = LoggerFactory.getLogger(SocketChanTube.class);
 
@@ -72,7 +72,7 @@ public class SocketChanTube extends ChanTube<SocketChan> {
     }
 
     @Override
-    protected ChanTube.BufferSource getBufferSource(FlowTube.TubeSubscriber subscriber) {
+    protected SelectableChanTube.BufferSource getBufferSource(FlowTube.TubeSubscriber subscriber) {
         return subscriber.supportsRecycling()
                 ? new SSLDirectBufferSource(tcpServerOrClient)
                 : sliceBuffersSource;
@@ -80,7 +80,7 @@ public class SocketChanTube extends ChanTube<SocketChan> {
 
     // An implementation of BufferSource used for encrypted data.
     // This buffer source uses direct byte buffers that will be
-    // recycled by the ChanTube subscriber.
+    // recycled by the SelectableChanTube subscriber.
     //
     private static final class SSLDirectBufferSource implements BufferSource {
         private final BufferSupplier factory;
@@ -126,7 +126,7 @@ public class SocketChanTube extends ChanTube<SocketChan> {
             buf.limit(buf.position());
             buf.position(start);
             // add the buffer to the list
-            return ChanTube.listOf(list, buf);
+            return SelectableChanTube.listOf(list, buf);
         }
 
         @Override
