@@ -18,10 +18,11 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 
 /**
- * Abstract class abstraction over a {@linkplain SelectableChannel NIO Selectable Channel}
+ * Abstract class abstraction over a {@linkplain java.nio.channels.SelectableChannel NIO Selectable Channel} : A channel that can be multiplexed via a {@link java.nio.channels.Selector}
  * It provides only methods we use, with limited visibility
  *
  * @param <T> type of SelectableChannel
+ * @author Fred Montariol
  */
 public abstract class SelectableChan<T extends SelectableChannel> implements SelectableChanAPI {
 
