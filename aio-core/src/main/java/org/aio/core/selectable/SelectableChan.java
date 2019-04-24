@@ -8,10 +8,9 @@
 
 package org.aio.core.selectable;
 
+import org.aio.core.Chan;
 import org.aio.core.selectable.api.SelectableChanAPI;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -24,16 +23,13 @@ import java.nio.channels.Selector;
  * @param <T> type of SelectableChannel
  * @author Fred Montariol
  */
-public abstract class SelectableChan<T extends SelectableChannel> implements SelectableChanAPI {
+public abstract class SelectableChan<T extends SelectableChannel> extends Chan<T> implements SelectableChanAPI {
 
     private T delegate;
 
     public SelectableChan(T delegate) {
+        super(delegate);
         this.delegate = delegate;
-    }
-
-    boolean isOpen() {
-        return delegate.isOpen();
     }
 
     SelectionKey keyFor(Selector sel) {
@@ -42,33 +38,5 @@ public abstract class SelectableChan<T extends SelectableChannel> implements Sel
 
     void register(Selector sel, int ops, Object att) throws ClosedChannelException {
         delegate.register(sel, ops, att);
-    }
-
-    void close() throws IOException {
-        delegate.close();
-    }
-
-    /**
-     * Read some bytes from the Channel and write them in the provided buf ByteBuffer
-     *
-     * @param buf the ByteBuffer
-     * @return number of read bytes
-     * @throws IOException a IO Exception that may occur during read operation
-     */
-    abstract protected int read(ByteBuffer buf) throws IOException;
-
-    /**
-     * Write bytes from provided srcs ByteBuffer array to the Channel
-     * It's a gathering write
-     *
-     * @param srcs ByteBuffer array containing values to write
-     * @return number of written bytes
-     * @throws IOException a IO Exception that may occur during write operation
-     */
-    abstract protected long write(ByteBuffer[] srcs) throws IOException;
-
-    @Override
-    public String toString() {
-        return delegate.toString();
     }
 }
