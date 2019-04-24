@@ -38,7 +38,7 @@
 
 package org.aio.tcp;
 
-import org.aio.core.ServerOrClient;
+import org.aio.core.selectable.SelectableServerOrClient;
 import org.aio.tcp.common.TcpUtils;
 
 import javax.net.ssl.SSLContext;
@@ -47,7 +47,7 @@ import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
 
-final class TcpServerBuilderImpl extends ServerOrClient.Builder implements TcpServer.Builder {
+final class TcpServerBuilderImpl extends SelectableServerOrClient.Builder implements TcpServer.Builder {
 
     int port;
     // Security parameters

@@ -6,9 +6,9 @@
  * file that accompanied this code.
  */
 
-package org.aio.core;
+package org.aio.core.selectable;
 
-import org.aio.core.api.SelectableChanAPI;
+import org.aio.core.selectable.api.SelectableChanAPI;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

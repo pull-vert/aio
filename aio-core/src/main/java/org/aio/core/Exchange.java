@@ -59,7 +59,7 @@
 //
 //    private final Logger logger = LoggerFactory.getLogger(Exchange.class);
 //
-//    final ServerOrClient<U> serverOrClient;
+//    final SelectableServerOrClient<U> serverOrClient;
 //    volatile ExchangeImpl<T, U> exchImpl;
 //    volatile CompletableFuture<? extends ExchangeImpl<T>> exchangeCF;
 //    volatile CompletableFuture<Void> bodyIgnored;

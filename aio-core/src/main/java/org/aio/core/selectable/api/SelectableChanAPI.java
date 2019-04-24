@@ -6,7 +6,9 @@
  * file that accompanied this code.
  */
 
-package org.aio.core.api;
+package org.aio.core.selectable.api;
+
+import org.aio.core.api.ChanAPI;
 
 /**
  * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel NIO Selectable Channel} : A channel that can be multiplexed via a {@link java.nio.channels.Selector}

@@ -8,7 +8,7 @@
 
 package org.aio.core.api;
 
-import org.aio.core.SelectableChan;
+import org.aio.core.selectable.SelectableChan;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;

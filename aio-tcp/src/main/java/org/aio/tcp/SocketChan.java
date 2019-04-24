@@ -8,7 +8,7 @@
 
 package org.aio.tcp;
 
-import org.aio.core.SelectableChan;
+import org.aio.core.selectable.SelectableChan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

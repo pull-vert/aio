@@ -36,8 +36,9 @@
  * questions.
  */
 
-package org.aio.core;
+package org.aio.core.selectable;
 
+import org.aio.core.ChanStagesImpl;
 import org.aio.core.api.ChanEvtsHandler;
 import org.aio.core.api.ChanStages;
 import org.aio.core.api.ServerOrClientAPI;
@@ -65,9 +66,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
-public abstract class ServerOrClient<T extends SelectableChan> implements ServerOrClientAPI {
+public abstract class SelectableServerOrClient<T extends SelectableChan> implements ServerOrClientAPI {
 
-    private final Logger logger = LoggerFactory.getLogger(ServerOrClient.class);
+    private final Logger logger = LoggerFactory.getLogger(SelectableServerOrClient.class);
 
     public abstract static class Builder implements ServerOrClientAPI.Builder {
         Executor executor;
@@ -107,7 +108,7 @@ public abstract class ServerOrClient<T extends SelectableChan> implements Server
      *
      * @param IDS the atomic provider for ID
      */
-    protected ServerOrClient(AtomicLong IDS, Builder builder, ChanStagesImpl chanStages) {
+    protected SelectableServerOrClient(AtomicLong IDS, Builder builder, ChanStagesImpl chanStages) {
         timeouts = new TreeSet<>();
         id = IDS.incrementAndGet();
         Executor ex = builder.executor;
@@ -158,7 +159,7 @@ public abstract class ServerOrClient<T extends SelectableChan> implements Server
      * Allows an AsyncEvent to modify its getInterestOps.
      * @param event The modified event.
      */
-    void eventUpdated(AsyncEvent<T> event) throws ClosedChannelException {
+    void eventUpdated(AsyncEvent<T> event) {
         assert !(event instanceof AsyncTriggerEvent);
         selMgr.eventUpdated(event);
     }
@@ -517,11 +518,11 @@ public abstract class ServerOrClient<T extends SelectableChan> implements Server
         private volatile boolean closed;
         private final List<AsyncEvent<T>> registrations;
         private final List<AsyncTriggerEvent> deregistrations;
-        ServerOrClient<T> owner;
+        SelectableServerOrClient<T> owner;
 
-        SelectorManager(ServerOrClient<T> ref) throws IOException {
+        SelectorManager(SelectableServerOrClient<T> ref) throws IOException {
             super(null, null,
-                    "ServerOrClient-" + ref.id + "-SelectorManager",
+                    "SelectableServerOrClient-" + ref.id + "-SelectorManager",
                     0, false);
             owner = ref;
             registrations = new ArrayList<>();
@@ -669,7 +670,7 @@ public abstract class ServerOrClient<T extends SelectableChan> implements Server
                     if (owner.isNotReferenced()) {
                         if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                 getName(),
-                                "ServerOrClient no longer referenced. Exiting...");
+                                "SelectableServerOrClient no longer referenced. Exiting...");
                         return;
                     }
 
@@ -716,7 +717,7 @@ public abstract class ServerOrClient<T extends SelectableChan> implements Server
                         if (owner.isNotReferenced()) {
                             if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                     getName(),
-                                    "ServerOrClient no longer referenced. Exiting...");
+                                    "SelectableServerOrClient no longer referenced. Exiting...");
                             return;
                         }
                         owner.purgeTimeoutsAndReturnNextDeadline();
@@ -771,7 +772,7 @@ public abstract class ServerOrClient<T extends SelectableChan> implements Server
                     // This terminates thread. So, better just print stack trace
                     String err = CoreUtils.stackTrace(e);
                     logger.error("{}: {}: {}", getName(),
-                            "ServerOrClient shutting down due to fatal error", err);
+                            "SelectableServerOrClient shutting down due to fatal error", err);
                 }
                 if (logger.isDebugEnabled()) logger.debug("shutting down", e);
             } finally {
@@ -804,10 +805,10 @@ public abstract class ServerOrClient<T extends SelectableChan> implements Server
 
         private static final int POOL_SIZE = ChanTube.MAX_BUFFERS;
         private final ByteBuffer[] pool = new ByteBuffer[POOL_SIZE];
-        private final ServerOrClient<T> serverOrClient;
+        private final SelectableServerOrClient<T> serverOrClient;
         private int tail, count; // no need for volatile: only accessed in SM thread.
 
-        public SSLDirectBufferSupplier(ServerOrClient<T> serverOrClient) {
+        public SSLDirectBufferSupplier(SelectableServerOrClient<T> serverOrClient) {
             this.serverOrClient = Objects.requireNonNull(serverOrClient);
         }
 

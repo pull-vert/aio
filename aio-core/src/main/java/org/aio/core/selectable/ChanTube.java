@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core;
+package org.aio.core.selectable;
 
 import org.aio.core.api.FlowTube;
 import org.aio.core.common.CoreUtils;
@@ -68,7 +68,7 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
     private final Logger logger = LoggerFactory.getLogger(ChanTube.class);
     private static final AtomicLong IDS = new AtomicLong();
 
-    private final ServerOrClient<T> serverOrClient;
+    private final SelectableServerOrClient<T> serverOrClient;
     private final T chan;
     private final Object lock = new Object();
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -76,7 +76,7 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
     private final InternalWriteSubscriber writeSubscriber;
     protected final long id = IDS.incrementAndGet();
 
-    public ChanTube(ServerOrClient<T> serverOrClient, T chan) {
+    public ChanTube(SelectableServerOrClient<T> serverOrClient, T chan) {
         this.serverOrClient = serverOrClient;
         this.chan = chan;
 
@@ -873,7 +873,6 @@ public abstract class ChanTube<T extends SelectableChan> implements FlowTube<Lis
                                 }
                             } catch (Throwable x) {
                                 signalError(x);
-                                continue;
                             }
                         } else {
                             if (logger.isDebugEnabled()) logger.debug("no more demand for reading");

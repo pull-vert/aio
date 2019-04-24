@@ -8,7 +8,7 @@
 
 package org.aio.tcp;
 
-import org.aio.core.ServerOrClient;
+import org.aio.core.selectable.SelectableServerOrClient;
 import org.aio.core.api.ChanEvtsHandler;
 
 import static java.util.Objects.requireNonNull;
@@ -16,7 +16,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * @author Fred Montariol
  */
-public class TcpStagesConfigurerImpl extends ServerOrClient.StagesConfigurer implements TcpServer.StagesConfigurer {
+public class TcpStagesConfigurerImpl extends SelectableServerOrClient.StagesConfigurer implements TcpServer.StagesConfigurer {
 
     private TcpServerBuilderImpl builder;
 
