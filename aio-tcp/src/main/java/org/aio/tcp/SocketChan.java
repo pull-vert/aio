@@ -35,13 +35,13 @@ public final class SocketChan extends SelectableChan<SocketChannel> {
     }
 
     @Override
-    protected int read(ByteBuffer buf) throws IOException {
+    public int read(ByteBuffer buf) throws IOException {
         logger.debug("Reading");
         return socketChannel.read(buf);
     }
 
     @Override
-    protected long write(ByteBuffer[] srcs) throws IOException {
+    public long write(ByteBuffer[] srcs) throws IOException {
         logger.debug("Writing");
         return socketChannel.write(srcs);
     }

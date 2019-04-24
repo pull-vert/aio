@@ -44,7 +44,7 @@ public abstract class Chan<T extends AbstractInterruptibleChannel> implements Ch
      * @return number of read bytes
      * @throws IOException a IO Exception that may occur during read operation
      */
-    abstract protected int read(ByteBuffer buf) throws IOException;
+    abstract public int read(ByteBuffer buf) throws IOException;
 
     /**
      * Write bytes from provided srcs ByteBuffer array to the Channel
@@ -54,7 +54,7 @@ public abstract class Chan<T extends AbstractInterruptibleChannel> implements Ch
      * @return number of written bytes
      * @throws IOException a IO Exception that may occur during write operation
      */
-    abstract protected long write(ByteBuffer[] srcs) throws IOException;
+    abstract public long write(ByteBuffer[] srcs) throws IOException;
 
     @Override
     public String toString() {
