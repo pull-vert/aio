@@ -9,7 +9,8 @@
 package org.aio.core.api;
 
 /**
- * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel NIO Selectable Channel}
+ * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel NIO Selectable Channel} : A channel that can be multiplexed via a {@link java.nio.channels.Selector}
+ * @author Fred Montariol
  */
-public interface SelectableChanAPI {
+public interface SelectableChanAPI extends ChanAPI {
 }
