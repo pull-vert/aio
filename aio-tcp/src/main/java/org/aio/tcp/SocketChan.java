@@ -19,8 +19,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
 /**
- * Class abstraction over a {@linkplain SocketChannel NIO Socket Channel}
+ * Class abstraction over a {@linkplain java.nio.channels.SocketChannel NIO Socket Channel} : A selectable channel for stream-oriented connecting sockets.
  * It provides only methods we use, with limited visibility
+ * @author Fred Montariol
  */
 public final class SocketChan extends SelectableChan<SocketChannel> {
 
