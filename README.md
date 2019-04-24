@@ -1,5 +1,5 @@
 # AIO
-AIO is a reactive event-driven client/server IO library, supporting TCP, UDP, HTTP/2 and in the future QUIC and HTTP/3 protocols.
+AIO is a reactive event-driven client/server IO library written in Java, supporting File, TCP, UDP, HTTP/2 and in the future QUIC and HTTP/3 protocols.
 
 ## Getting it
 AIO require **JDK 9** or later, as it relies on j.u.c.Flow API and TLSv1.2. It is modularized with Jigsaw.
@@ -18,7 +18,8 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 * TcpClient
 
 ## TODO
-* Bybu, an abstraction over List<ByteBuffer>
+* Bybu, an abstraction over a single ```ByteBuffer``` or ```List<ByteBuffer>```
+* File module
 * HTTP/2 module
 * UDP module
 * JDK 11 core module for TLSv1.3 support, and maybe more
@@ -27,7 +28,9 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 * Kotlin first class support, with extension functions etc.
 
 ## Ideas (maybe not that good)
-* Use [ServiceLoader](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html) mechanism for Executor to overwrite Executor used in JUnit tests.
+* Use [ServiceLoader](https://docs.oracle.com/javase/9/docs/api/java/util/ServiceLoader.html) mechanism
+  * Server and Clients can have different implementation for JDK9 (aio-*) and JDK11 (aio-jdk11-*) 
+  * Executor used in tests can be different from normal Executor
 * Use [JEP238 multi-release jar](http://openjdk.java.net/jeps/238), for exemple for TLSv1.3
 
 ## License
