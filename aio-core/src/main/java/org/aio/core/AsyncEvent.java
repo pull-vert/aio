@@ -45,7 +45,7 @@ import java.io.IOException;
  *
  * If REPEATING is set then the event is not cancelled after being posted.
  */
-public abstract class AsyncEvent<T extends Chan> {
+public abstract class AsyncEvent<T extends SelectableChan> {
 
     static final int REPEATING = 0x2; // one off event if not set
 

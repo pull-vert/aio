@@ -46,7 +46,7 @@ import java.util.function.Consumer;
  * An asynchronous event which is triggered only once from the selector manager
  * thread as soon as event registration are handled.
  *
- * It is not associated with a {@link Chan}
+ * It is not associated with a {@link SelectableChan}
  */
 public final class AsyncTriggerEvent extends AsyncEvent{
 
@@ -60,7 +60,7 @@ public final class AsyncTriggerEvent extends AsyncEvent{
     }
     /** Returns null */
     @Override
-    public Chan getChan() { return null; }
+    public SelectableChan getChan() { return null; }
     /** Returns 0 */
     @Override
     public int getInterestOps() { return 0; }

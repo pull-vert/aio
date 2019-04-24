@@ -58,12 +58,12 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * A ChanTube implementation is a terminal tube plugged directly into the {@link Chan}
+ * A ChanTube implementation is a terminal tube plugged directly into the {@link SelectableChan}
  * <br>
  * The read subscriber should call {@code subscribe} on the ChanTube before
  * the ChanTube is subscribed to the write publisher.
  */
-public abstract class ChanTube<T extends Chan> implements FlowTube<List<ByteBuffer>, List<ByteBuffer>> {
+public abstract class ChanTube<T extends SelectableChan> implements FlowTube<List<ByteBuffer>, List<ByteBuffer>> {
 
     private final Logger logger = LoggerFactory.getLogger(ChanTube.class);
     private static final AtomicLong IDS = new AtomicLong();
@@ -231,7 +231,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube<List<ByteBuff
      * signaled. It is the responsibility of the code triggered by
      * {@code signalEvent} to resume the event if required.
      */
-    private static abstract class SelectableChannelFlowEvent<T extends Chan> extends AsyncEvent<T> {
+    private static abstract class SelectableChannelFlowEvent<T extends SelectableChan> extends AsyncEvent<T> {
 
         final Logger logger = LoggerFactory.getLogger(SelectableChannelFlowEvent.class);
 
@@ -918,7 +918,7 @@ public abstract class ChanTube<T extends Chan> implements FlowTube<List<ByteBuff
                 if (!readScheduler.isStopped()) {
                     subscription = pending;
                 } else {
-                    if (logger.isDebugEnabled()) logger.debug("Chan tube is already stopped");
+                    if (logger.isDebugEnabled()) logger.debug("SelectableChan tube is already stopped");
                 }
                 if (logger.isDebugEnabled()) logger.debug("calling onSubscribe");
                 pending.signalOnSubscribe();

@@ -99,7 +99,7 @@ public interface ServerOrClientAPI {
     }
 
     /**
-     * Configurer for first {@linkplain ChanStages stage} of the Chan
+     * Configurer for first {@linkplain ChanStages stage} of the SelectableChan
      *
      * @author Fred Montariol
      */
@@ -107,10 +107,10 @@ public interface ServerOrClientAPI {
     public static interface FirstStagesConfigurer {
 
         /**
-         * Define first stage in {@linkplain ChanStages stage(s)} of the Chan
+         * Define first stage in {@linkplain ChanStages stage(s)} of the SelectableChan
          *
          * @param name The unique name of the {@link ChanEvtsEmitter} associated with provided {@code chanEvtsHandler}
-         * @param chanEvtsHandler The first Event Handler to add to {@linkplain ChanStages stage(s)} of the Chan
+         * @param chanEvtsHandler The first Event Handler to add to {@linkplain ChanStages stage(s)} of the SelectableChan
          * @return The {@link StagesConfigurer} that allows to configure next stage(s) and then build the server
          * or client
          */
@@ -119,7 +119,7 @@ public interface ServerOrClientAPI {
     }
 
     /**
-     * Configurer for next {@linkplain ChanStages stage(s)} of the Chan
+     * Configurer for next {@linkplain ChanStages stage(s)} of the SelectableChan
      * <p>
      * Provide the {@link #build()} method that instanciate the server
      * or client
@@ -129,10 +129,10 @@ public interface ServerOrClientAPI {
     public static interface StagesConfigurer {
 
         /**
-         * Add last stage to {@linkplain ChanStages stage(s)} of the Chan
+         * Add last stage to {@linkplain ChanStages stage(s)} of the SelectableChan
          *
          * @param name The unique name of the {@link ChanEvtsEmitter} associated with provided {@code chanEvtsHandler}
-         * @param chanEvtsHandler The last Event Handler to add to {@linkplain ChanStages stage(s)} of the Chan
+         * @param chanEvtsHandler The last Event Handler to add to {@linkplain ChanStages stage(s)} of the SelectableChan
          * @return this StagesConfigurer
          */
         public <U extends ChanEvtsHandler> StagesConfigurer addLast(String name, U chanEvtsHandler);

@@ -8,7 +8,7 @@
 
 package org.aio.tcp;
 
-import org.aio.core.Chan;
+import org.aio.core.SelectableChan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +22,7 @@ import java.nio.channels.SocketChannel;
  * Class abstraction over a {@linkplain SocketChannel NIO Socket Channel}
  * It provides only methods we use, with limited visibility
  */
-public final class SocketChan extends Chan<SocketChannel> {
+public final class SocketChan extends SelectableChan<SocketChannel> {
 
     private final Logger logger = LoggerFactory.getLogger(SocketChan.class);
 

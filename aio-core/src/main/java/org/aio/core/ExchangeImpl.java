@@ -54,7 +54,7 @@
 // *
 // * These implementation classes are where work is allocated to threads.
 // */
-//abstract public class ExchangeImpl<T, U extends Chan> {
+//abstract public class ExchangeImpl<T, U extends SelectableChan> {
 //
 //    private final Logger logger = LoggerFactory.getLogger(ExchangeImpl.class);
 //

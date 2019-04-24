@@ -55,7 +55,7 @@
 // * - uses AccessControlContext captured at API level
 // * - checks for appropriate URLPermission for request
 // */
-//abstract public class Exchange<T, U extends Chan> {
+//abstract public class Exchange<T, U extends SelectableChan> {
 //
 //    private final Logger logger = LoggerFactory.getLogger(Exchange.class);
 //

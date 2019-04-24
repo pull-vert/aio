@@ -11,5 +11,5 @@ package org.aio.core.api;
 /**
  * Interface abstraction over a {@linkplain java.nio.channels.SelectableChannel NIO Selectable Channel}
  */
-public interface ChanAPI {
+public interface SelectableChanAPI {
 }

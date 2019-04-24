@@ -8,7 +8,7 @@
 
 package org.aio.core;
 
-import org.aio.core.api.ChanAPI;
+import org.aio.core.api.SelectableChanAPI;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,11 +23,11 @@ import java.nio.channels.Selector;
  *
  * @param <T> type of SelectableChannel
  */
-public abstract class Chan<T extends SelectableChannel> implements ChanAPI {
+public abstract class SelectableChan<T extends SelectableChannel> implements SelectableChanAPI {
 
     private T delegate;
 
-    public Chan(T delegate) {
+    public SelectableChan(T delegate) {
         this.delegate = delegate;
     }
 

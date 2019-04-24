@@ -65,7 +65,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
-public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAPI {
+public abstract class ServerOrClient<T extends SelectableChan> implements ServerOrClientAPI {
 
     private final Logger logger = LoggerFactory.getLogger(ServerOrClient.class);
 
@@ -327,7 +327,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
      * by the SelectorManager thread. One of these objects required per
      * connection.
      */
-    static class SelectorAttachment<T extends Chan> {
+    static class SelectorAttachment<T extends SelectableChan> {
         final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
 
         private final T chan;
@@ -484,7 +484,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     /**
      * Main event loop for this client or server's {@link Selector}
      */
-    protected final static class SelectorManager<T extends Chan> extends Thread {
+    protected final static class SelectorManager<T extends SelectableChan> extends Thread {
 
         final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
 
@@ -605,7 +605,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
                                 readyList.add(event);
                                 continue;
                             }
-                            // Get Chan associated with the event
+                            // Get SelectableChan associated with the event
                             T chan = event.getChan();
                             SelectionKey key = null;
                             try {
@@ -798,7 +798,7 @@ public abstract class ServerOrClient<T extends Chan> implements ServerOrClientAP
     // maximum 3 direct byte buffers (SocketTube.MAX_BUFFERS) that
     // are used for reading encrypted bytes off the channel before
     // copying and subsequent unwrapping.
-    protected static final class SSLDirectBufferSupplier<T extends Chan> implements BufferSupplier {
+    protected static final class SSLDirectBufferSupplier<T extends SelectableChan> implements BufferSupplier {
 
         private final Logger logger = LoggerFactory.getLogger(SSLDirectBufferSupplier.class);
 
