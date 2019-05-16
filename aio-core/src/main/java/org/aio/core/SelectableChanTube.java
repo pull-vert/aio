@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core.selectable;
+package org.aio.core;
 
 import org.aio.core.api.FlowTube;
 import org.aio.core.common.CoreUtils;
@@ -297,7 +297,6 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
         final WriteEvent writeEvent = new WriteEvent(selectableChan, this);
         final Demand writeDemand = new Demand();
 
-        @SuppressWarnings("unchecked")
         @Override
         public void onSubscribe(Flow.Subscription subscription) {
             WriteSubscription previous = this.subscription;
@@ -676,7 +675,6 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 readEvent = new ReadEvent(selectableChan, this);
             }
 
-            @SuppressWarnings("unchecked")
             /*
              * This method must be invoked before any other method of this class.
              */
@@ -900,7 +898,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 } finally {
                     if (readScheduler.isStopped()) {
                         if (logger.isDebugEnabled()) {
-                            logger.debug("Read scheduler stopped from selectableChan {0}", channelDescr());
+                            logger.debug("Read scheduler stopped from selectableChan {}", channelDescr());
                         }
                     }
                     handlePending();

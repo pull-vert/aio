@@ -40,7 +40,7 @@ package org.aio.tcp;
 
 import org.aio.core.ChanStagesImpl;
 import org.aio.core.api.EndpointAPI;
-import org.aio.core.selectable.SelectableEndpoint;
+import org.aio.core.SelectableEndpoint;
 import org.aio.core.common.BufferSupplier;
 
 import java.util.concurrent.atomic.AtomicLong;

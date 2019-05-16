@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core.selectable;
+package org.aio.core;
 
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;

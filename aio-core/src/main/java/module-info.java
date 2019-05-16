@@ -11,6 +11,5 @@ module aio.core {
     exports org.aio.core;
     exports org.aio.core.api;
     exports org.aio.core.common;
-    exports org.aio.core.selectable;
     exports org.aio.core.util.concurrent;
 }

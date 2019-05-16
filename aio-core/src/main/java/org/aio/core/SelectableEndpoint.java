@@ -36,9 +36,8 @@
  * questions.
  */
 
-package org.aio.core.selectable;
+package org.aio.core;
 
-import org.aio.core.ChanStagesImpl;
 import org.aio.core.api.ChanEvtsHandler;
 import org.aio.core.api.ChanStages;
 import org.aio.core.api.EndpointAPI;
@@ -527,7 +526,6 @@ public abstract class SelectableEndpoint implements EndpointAPI {
             selector = Selector.open();
         }
 
-        @SuppressWarnings("unchecked")
         void eventUpdated(AsyncEvent e) {
             // if in this selector event loop thread
             if (Thread.currentThread() == this) {
@@ -579,7 +577,6 @@ public abstract class SelectableEndpoint implements EndpointAPI {
             }
         }
 
-        @SuppressWarnings("unchecked")
         @Override
         public void run() {
             List<Pair<AsyncEvent,IOException>> errorList = new ArrayList<>();

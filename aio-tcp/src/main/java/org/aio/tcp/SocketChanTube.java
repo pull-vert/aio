@@ -40,7 +40,7 @@ package org.aio.tcp;
 
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.api.FlowTube;
-import org.aio.core.selectable.SelectableChanTube;
+import org.aio.core.SelectableChanTube;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

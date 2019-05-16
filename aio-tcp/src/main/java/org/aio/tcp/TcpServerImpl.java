@@ -38,7 +38,7 @@
 
 package org.aio.tcp;
 
-import org.aio.core.selectable.AsyncEvent;
+import org.aio.core.AsyncEvent;
 import org.aio.core.ChanStagesImpl;
 import org.aio.core.api.FlowTube;
 import org.aio.core.common.BufferSupplier;
