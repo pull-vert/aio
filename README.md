@@ -36,3 +36,5 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 
 ## License
 AIO is Open Source Software released under the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html) and is subject to the [Classpath](https://www.gnu.org/software/classpath/license.html) exception.
+
+This Classpath Exception on GPL2 allow you to include a dependency on AIO in your library, regardless of the license terms of it.
