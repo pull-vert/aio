@@ -35,6 +35,6 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 * Use [JEP238 multi-release jar](http://openjdk.java.net/jeps/238), for exemple for TLSv1.3
 
 ## License
-AIO is Open Source Software released under the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html) and is subject to the [Classpath](https://www.gnu.org/software/classpath/license.html) exception.
+AIO is Open Source Software released under the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html) and is subject to the [Classpath Exception](https://www.gnu.org/software/classpath/license.html).
 
-This Classpath Exception on GPL2 allow you to include a dependency on AIO in your library, regardless of the license terms of it.
+This Classpath Exception on GPL2 allow you to include a dependency on AIO in your library, regardless of its license terms.
