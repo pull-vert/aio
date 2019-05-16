@@ -1,6 +1,8 @@
 # AIO
 AIO is a reactive event-driven client/server IO library written in Java, supporting File, TCP, UDP, HTTP/2 and in the future QUIC and HTTP/3 protocols.
 
+AIO started as a fork of OpenJDK's HttpClient incubating since JDK9 and released with JDK11.
+
 ## Getting it
 AIO require **JDK 9** or later, as it relies on j.u.c.Flow API and TLSv1.2. It is modularized with Jigsaw.
 
@@ -9,8 +11,7 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 
 ## WIP
 ### aio-core
-* Chan is an abstraction over java.nio.channels.SelectableChannel
-* ChanTube act as a Publisher and Subscriber on a Chan
+* Define Base API and abstract Classes for Selectable channels
 * SSL and TLSv1.2 support
 
 ### aio-tcp
@@ -23,8 +24,8 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 * HTTP/2 module
 * UDP module
 * JDK 11 core module for TLSv1.3 support, and maybe more
-* pure QUIC protocol module with TLSv1.3 ?
-* [HTTP/3](https://quicwg.org/base-drafts/draft-ietf-quic-http.html) based on QUIC = UDP + TLSv1.3 or greater. It was previously known as HTTP-over-QUIC.
+* base QUIC protocol module with TLSv1.3 ?
+* [HTTP/3](https://quicwg.org/base-drafts/draft-ietf-quic-http.html) based on QUIC = UDP + TLSv1.3 or greater. Previously known as HTTP-over-QUIC.
 * Kotlin first class support, with extension functions etc.
 
 ## Ideas (maybe not that good)
@@ -35,4 +36,3 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 
 ## License
 AIO is Open Source Software released under the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html) and is subject to the [Classpath](https://www.gnu.org/software/classpath/license.html) exception.
-AIO is a fork of OpenJDK's HttpClient released with JDK11.
