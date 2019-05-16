@@ -45,6 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -56,16 +57,16 @@ import java.util.function.Supplier;
  * The read subscriber should call {@code subscribe} on the SocketChanTube before
  * the SocketChanTube is subscribed to the write getPublisher.
  */
-public class SocketChanTube extends SelectableChanTube<SocketChan> {
+public class SocketChanTube extends SelectableChanTube<SocketChannel> {
 
     private final Logger logger = LoggerFactory.getLogger(SocketChanTube.class);
 
-    private final TcpServerOrClient tcpServerOrClient;
+    private final TcpEndpoint tcpServerOrClient;
     private final SliceBufferSource sliceBuffersSource;
 
-    SocketChanTube(TcpServerOrClient tcpServerOrClient, SocketChan socketChan,
-                    Supplier<ByteBuffer> buffersFactory) {
-        super(tcpServerOrClient, socketChan);
+    SocketChanTube(TcpEndpoint tcpServerOrClient, SocketChannel socketChannel,
+                   Supplier<ByteBuffer> buffersFactory) {
+        super(tcpServerOrClient, socketChannel);
         logger.debug("new SocketChanTube");
         this.tcpServerOrClient = tcpServerOrClient;
         this.sliceBuffersSource = new SliceBufferSource(buffersFactory);
@@ -84,10 +85,10 @@ public class SocketChanTube extends SelectableChanTube<SocketChan> {
     //
     private static final class SSLDirectBufferSource implements BufferSource {
         private final BufferSupplier factory;
-        private final TcpServerOrClient tcpServerOrClient;
+        private final TcpEndpoint tcpServerOrClient;
         private ByteBuffer current;
 
-        SSLDirectBufferSource(TcpServerOrClient tcpServerOrClient) {
+        SSLDirectBufferSource(TcpEndpoint tcpServerOrClient) {
             this.tcpServerOrClient = Objects.requireNonNull(tcpServerOrClient);
             this.factory = Objects.requireNonNull(tcpServerOrClient.getSSLBufferSupplier());
         }

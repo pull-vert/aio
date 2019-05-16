@@ -53,6 +53,7 @@ import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -67,7 +68,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * and delivered when they occur.</p>
  * @see AsyncEvent
  */
-public final class TcpServerImpl extends TcpServerOrClient implements TcpServer {
+public final class TcpServerImpl extends TcpEndpoint implements TcpServer {
 
     private final Logger logger = LoggerFactory.getLogger(TcpServerImpl.class);
 
@@ -84,8 +85,8 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     // buffers used between the socket reader and the SSLEngine, or
     // more precisely between the SocketTube getPublisher and the
     // SSLFlowDelegate reader.
-    private final SSLDirectBufferSupplier<SocketChan> sslBufferSupplier
-            = new SSLDirectBufferSupplier<>(this);
+    private final SSLDirectBufferSupplier sslBufferSupplier
+            = new SSLDirectBufferSupplier(this);
 
     // This reference is used to keep track of the facade TcpServer
     // that was returned to the application code.
@@ -118,7 +119,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
     //    from the map. This should also take care of push promises.
     // 2. For WebSocket the count is increased when creating a
     //    DetachedConnectionChannel for the socket, and decreased
-    //    when the the getSocketChan is closed.
+    //    when the the channel is closed.
     //    In addition, the HttpClient facade is passed to the WebSocket builder,
     //    (instead of the client implementation delegate).
     // 3. For HTTP/1.1 the count is incremented before starting to parse the body
@@ -194,7 +195,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
         return port;
     }
 
-    // TcpServerOrClient methods
+    // TcpEndpoint methods
 
     @Override
     public Optional<SSLContext> getSslContext() {
@@ -336,7 +337,7 @@ public final class TcpServerImpl extends TcpServerOrClient implements TcpServer 
 
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
-                        SocketChan socketChan = new SocketChan(this.serverSocket.accept());
+                        SocketChannel socketChan = this.serverSocket.accept();
                         if (logger.isDebugEnabled()) logger.debug("new Socket accepted: {}", socketChan);
                         TcpConnection tcpConnection = TcpConnection.createConnection(inetSocketAddress, owner, socketChan, false);
                         offerConnection(tcpConnection);

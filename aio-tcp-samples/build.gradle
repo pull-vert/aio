@@ -12,28 +12,15 @@ plugins {
 
 ext {
     moduleName='aio.tcp.samples'
-    log4j2Version='2.11.1'
+    log4j_version='2.11.2'
 }
 
 dependencies {
     implementation(project(':aio-core'))
     implementation(project(':aio-tcp'))
-    implementation("org.apache.logging.log4j:log4j-api:$log4j2Version")
-    implementation("org.apache.logging.log4j:log4j-core:$log4j2Version")
-    implementation("org.apache.logging.log4j:log4j-slf4j18-impl:$log4j2Version")
+    implementation("org.apache.logging.log4j:log4j-api:$log4j_version")
+    implementation("org.apache.logging.log4j:log4j-core:$log4j_version")
+    implementation("org.apache.logging.log4j:log4j-slf4j18-impl:$log4j_version")
 }
 
 mainClassName = "org.aio.tcp.samples.TcpServerMain"
-
-//run {
-//    inputs.property("moduleName", moduleName)
-//    println("$moduleName=" + files(sourceSets.main.output.resourcesDir).asPath)
-//    doFirst {
-//        jvmArgs = [
-//                '--module-path', classpath.asPath,
-//                '--patch-module', "$moduleName=" + files(sourceSets.main.output.resourcesDir).asPath,
-//                '--module', "$moduleName/$mainClassName"
-//        ]
-//        classpath = files()
-//    }
-//}

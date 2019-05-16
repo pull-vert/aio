@@ -46,9 +46,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * Timeout event notified by selector thread. Executes the given handler if
  * the timer not canceled first.
  *
- * Register with {@link SelectableServerOrClient#registerTimer(TimeoutEvent)}.
+ * Register with {@link SelectableEndpoint#registerTimer(TimeoutEvent)}.
  *
- * Cancel with {@link SelectableServerOrClient#cancelTimer(TimeoutEvent)}.
+ * Cancel with {@link SelectableEndpoint#cancelTimer(TimeoutEvent)}.
  */
 public abstract class TimeoutEvent implements Comparable<TimeoutEvent> {
 

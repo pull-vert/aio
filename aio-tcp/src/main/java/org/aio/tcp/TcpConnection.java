@@ -50,6 +50,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -62,23 +63,23 @@ public abstract class TcpConnection implements Closeable {
     private final Logger logger = LoggerFactory.getLogger(TcpConnection.class);
 
     private final InetSocketAddress address;
-    private final TcpServerOrClient tcpServerOrClient;
+    private final TcpEndpoint tcpServerOrClient;
     private volatile Throwable cause;
     private final TcpTubeSubscriber subscriber;
 
     volatile boolean closed;
 
-    TcpConnection(InetSocketAddress address, TcpServerOrClient tcpServerOrClient) {
+    TcpConnection(InetSocketAddress address, TcpEndpoint tcpServerOrClient) {
         this.address = address;
         this.tcpServerOrClient = tcpServerOrClient;
         subscriber = new TcpTubeSubscriber(tcpServerOrClient);
     }
 
-    TcpServerOrClient getServerOrClient() {
+    TcpEndpoint getServerOrClient() {
         return tcpServerOrClient;
     }
 
-    abstract SocketChan getSocketChan();
+    abstract SocketChannel channel();
 
     final InetSocketAddress address() {
         return address;
@@ -122,17 +123,17 @@ public abstract class TcpConnection implements Closeable {
 
     static TcpConnection createConnection(InetSocketAddress addr,
                                               TcpServerImpl server,
-                                              SocketChan chan,
+                                              SocketChannel socketChannel,
                                               boolean secure) {
 //        if (!secure) {
-            return createPlainConnection(addr, server, chan);
+            return createPlainConnection(addr, server, socketChannel);
 //        } else {  // secure
 //            return createSSLConnection(addr, proxy, alpn, request, server);
 //        }
     }
 
-    private static TcpConnection createPlainConnection(InetSocketAddress addr, TcpServerImpl server, SocketChan chan) {
-        return new PlainTcpConnection(addr, server, chan);
+    private static TcpConnection createPlainConnection(InetSocketAddress addr, TcpServerImpl server, SocketChannel socketChannel) {
+        return new PlainTcpConnection(addr, server, socketChannel);
     }
 
     /**
@@ -250,7 +251,7 @@ public abstract class TcpConnection implements Closeable {
 
     @Override
     public String toString() {
-        return "TcpConnection: " + getSocketChan().toString();
+        return "TcpConnection: " + channel().toString();
     }
 
     private void asyncReceive(ByteBuffer buffer) {
@@ -302,9 +303,9 @@ public abstract class TcpConnection implements Closeable {
                 = new ConcurrentLinkedQueue<>();
         private final SequentialScheduler scheduler =
                 SequentialScheduler.synchronizedScheduler(this::processQueue);
-        private final TcpServerOrClient serverOrClient;
+        private final TcpEndpoint serverOrClient;
 
-        TcpTubeSubscriber(TcpServerOrClient serverOrClient) {
+        TcpTubeSubscriber(TcpEndpoint serverOrClient) {
             this.serverOrClient = Objects.requireNonNull(serverOrClient);
         }
 

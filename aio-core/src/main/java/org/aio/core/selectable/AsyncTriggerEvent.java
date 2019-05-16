@@ -39,16 +39,15 @@
 package org.aio.core.selectable;
 
 import java.io.IOException;
+import java.nio.channels.SelectableChannel;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
  * An asynchronous event which is triggered only once from the selector manager
  * thread as soon as event registration are handled.
- *
- * It is not associated with a {@link SelectableChan}
  */
-public final class AsyncTriggerEvent extends AsyncEvent{
+public final class AsyncTriggerEvent extends AsyncEvent {
 
     private final Runnable trigger;
     private final Consumer<? super IOException> errorHandler;
@@ -60,7 +59,7 @@ public final class AsyncTriggerEvent extends AsyncEvent{
     }
     /** Returns null */
     @Override
-    public SelectableChan getChan() { return null; }
+    public SelectableChannel channel() { return null; }
     /** Returns 0 */
     @Override
     public int getInterestOps() { return 0; }

@@ -47,6 +47,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.GatheringByteChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,27 +61,29 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * A SelectableChanTube implementation is a terminal tube plugged directly into the {@link SelectableChan}
+ * SelectableChanTube is a ChanTube implementation. It is a terminal tube plugged directly
+ * into the Selectable Channel
  * <br>
  * The read subscriber should call {@code subscribe} on the SelectableChanTube before
  * the SelectableChanTube is subscribed to the write publisher.
  */
-public abstract class SelectableChanTube<T extends SelectableChan> implements FlowTube<List<ByteBuffer>, List<ByteBuffer>> {
+public abstract class SelectableChanTube<T extends SelectableChannel & ReadableByteChannel & GatheringByteChannel>
+        implements FlowTube<List<ByteBuffer>, List<ByteBuffer>> {
 
     private final Logger logger = LoggerFactory.getLogger(SelectableChanTube.class);
     private static final AtomicLong IDS = new AtomicLong();
 
-    private final SelectableServerOrClient<T> serverOrClient;
-    private final T chan;
+    private final SelectableEndpoint endpoint;
+    private final T selectableChan;
     private final Object lock = new Object();
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     private final InternalReadPublisher readPublisher;
     private final InternalWriteSubscriber writeSubscriber;
     protected final long id = IDS.incrementAndGet();
 
-    public SelectableChanTube(SelectableServerOrClient<T> serverOrClient, T chan) {
-        this.serverOrClient = serverOrClient;
-        this.chan = chan;
+    public SelectableChanTube(SelectableEndpoint endpoint, T selectableChan) {
+        this.endpoint = endpoint;
+        this.selectableChan = selectableChan;
 
         this.readPublisher = new InternalReadPublisher();
         this.writeSubscriber = new InternalWriteSubscriber();
@@ -231,18 +236,18 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
      * signaled. It is the responsibility of the code triggered by
      * {@code signalEvent} to resume the event if required.
      */
-    private static abstract class SelectableChannelFlowEvent<T extends SelectableChan> extends AsyncEvent<T> {
+    private static abstract class SelectableChannelFlowEvent extends AsyncEvent {
 
         private final Logger logger = LoggerFactory.getLogger(SelectableChannelFlowEvent.class);
 
-        final T chan;
+        final SelectableChannel selectableChannel;
         final int defaultInterest;
         volatile int interestOps;
         volatile boolean registered;
-        SelectableChannelFlowEvent(int defaultInterest, T chan) {
+        SelectableChannelFlowEvent(int defaultInterest, SelectableChannel selectableChannel) {
             super(AsyncEvent.REPEATING);
             this.defaultInterest = defaultInterest;
-            this.chan = chan;
+            this.selectableChannel = selectableChannel;
         }
         final boolean registered() {return registered;}
         final void resume() {
@@ -251,7 +256,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
         }
         final void pause() {interestOps = 0;}
         @Override
-        public final T getChan() {return chan;}
+        public final SelectableChannel channel() {return selectableChannel;}
         @Override
         public final int getInterestOps() {return interestOps;}
 
@@ -289,7 +294,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
         volatile boolean completed;
         final AsyncTriggerEvent startSubscription =
                 new AsyncTriggerEvent(this::signalError, this::startSubscription);
-        final WriteEvent writeEvent = new WriteEvent(chan, this);
+        final WriteEvent writeEvent = new WriteEvent(selectableChan, this);
         final Demand writeDemand = new Demand();
 
         @SuppressWarnings("unchecked")
@@ -308,7 +313,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                 if (needEvent) {
                     if (logger.isDebugEnabled())
                         logger.debug("write: registering startSubscription event");
-                    serverOrClient.registerEvent(startSubscription);
+                    endpoint.registerEvent(startSubscription);
                 }
             } catch (Throwable t) {
                 signalError(t);
@@ -322,14 +327,14 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
             assert subscription != null : dbgString()
                     + "w.onNext: subscription is null";
             current = bufs;
-            tryFlushCurrent(serverOrClient.isSelectorThread()); // may be in selector thread
+            tryFlushCurrent(endpoint.isSelectorThread()); // may be in selector thread
             // For instance in HTTP/2, a received SETTINGS frame might trigger
             // the sending of a SETTINGS frame in turn which might cause
             // onNext to be called from within the same selector thread that the
             // original SETTINGS frames arrived on. If rs is the read-subscriber
             // and ws is the write-subscriber then the following can occur:
             // ReadEvent -> rs.onNext(bytes) -> process server SETTINGS -> write
-            // serverOrClient SETTINGS -> ws.onNext(bytes) -> tryFlushCurrent
+            // endpoint SETTINGS -> ws.onNext(bytes) -> tryFlushCurrent
             debugState("leaving w.onNext");
         }
 
@@ -350,7 +355,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
             List<ByteBuffer> bufs = current;
             if (bufs == null) return;
             try {
-                assert inSelectorThread == serverOrClient.isSelectorThread() :
+                assert inSelectorThread == endpoint.isSelectorThread() :
                        "should " + (inSelectorThread ? "" : "not ")
                         + " be in the selector thread";
                 long remaining = CoreUtils.remaining(bufs);
@@ -364,10 +369,10 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                     if (writeDemand.tryDecrement()) {
                         Runnable requestMore = this::requestMore;
                         if (inSelectorThread) {
-                            assert serverOrClient.isSelectorThread();
-                            serverOrClient.theExecutor().execute(requestMore);
+                            assert endpoint.isSelectorThread();
+                            endpoint.theExecutor().execute(requestMore);
                         } else {
-                            assert !serverOrClient.isSelectorThread();
+                            assert !endpoint.isSelectorThread();
                             requestMore.run();
                         }
                     }
@@ -385,15 +390,15 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
             try {
                 if (logger.isDebugEnabled()) {
                     logger.debug("write: starting subscription");
-                    logger.debug("Start requesting bytes for writing to chan: {}",
+                    logger.debug("Start requesting bytes for writing to selectableChan: {}",
                             channelDescr());
                 }
-                assert serverOrClient.isSelectorThread();
+                assert endpoint.isSelectorThread();
                 // make sure read registrations are handled before;
                 readPublisher.subscriptionImpl.handlePending();
                 if (logger.isDebugEnabled()) logger.debug("write: offloading requestMore");
                 // start writing;
-                serverOrClient.theExecutor().execute(this::requestMore);
+                endpoint.theExecutor().execute(this::requestMore);
             } catch(Throwable t) {
                 signalError(t);
             }
@@ -427,14 +432,14 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
         }
 
         void signalWritable() {
-            if (logger.isDebugEnabled()) logger.debug("chan is writable");
+            if (logger.isDebugEnabled()) logger.debug("selectableChan is writable");
             tryFlushCurrent(true);
         }
 
         void signalError(Throwable error) {
             if (logger.isDebugEnabled()) {
                 logger.debug("write error: " + error);
-                logger.debug("Failed to write to chan ({}: {})",
+                logger.debug("Failed to write to selectableChan ({}: {})",
                         channelDescr(), error);
             }
             completed = true;
@@ -445,16 +450,16 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
 
         // A repeatable WriteEvent which is paused after firing and can
         // be resumed if required - see SelectableChannelFlowEvent;
-        final class WriteEvent extends SelectableChannelFlowEvent<T> {
+        final class WriteEvent extends SelectableChannelFlowEvent {
             final SelectableChanTube.InternalWriteSubscriber sub;
-            WriteEvent(T chan, SelectableChanTube.InternalWriteSubscriber sub) {
-                super(SelectionKey.OP_WRITE, chan);
+            WriteEvent(T selectableChannel, SelectableChanTube.InternalWriteSubscriber sub) {
+                super(SelectionKey.OP_WRITE, selectableChannel);
                 this.sub = sub;
             }
             @Override
             protected final void signalEvent() {
                 try {
-                    serverOrClient.eventUpdated(this);
+                    endpoint.eventUpdated(this);
                     sub.signalWritable();
                 } catch(Throwable t) {
                     sub.signalError(t);
@@ -540,14 +545,14 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
     // right after the errorRef has been set.
     // Because the sequential scheduler's task always checks for errors first,
     // and always terminate the scheduler on error, then it is safe to assume
-    // that if it reaches the point where it reads from the chan, then
+    // that if it reaches the point where it reads from the selectableChan, then
     // it is running in the SelectorManager thread. This is because all
     // other invocation of runOrSchedule() are triggered from within a
     // ReadEvent.
     //
     // When pausing/resuming the event, some shortcuts can then be taken
     // when we know we're running in the selector manager thread
-    // (in that case there's no need to call serverOrClient.eventUpdated(readEvent);
+    // (in that case there's no need to call endpoint.eventUpdated(readEvent);
     //
     private final class InternalReadPublisher
             implements Flow.Publisher<List<ByteBuffer>> {
@@ -587,7 +592,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                 return;
             }
             if (logger.isDebugEnabled()) {
-                logger.debug("Error signalled on chan {}: {}",
+                logger.debug("Error signalled on selectableChan {}: {}",
                         channelDescr(), error);
             }
             subscriptionImpl.handleError();
@@ -668,7 +673,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                 readScheduler = new SequentialScheduler(new SelectableChannelFlowTask(this::read));
                 subscribeEvent = new AsyncTriggerEvent(this::signalError,
                                                        this::handleSubscribeEvent);
-                readEvent = new ReadEvent(chan, this);
+                readEvent = new ReadEvent(selectableChan, this);
             }
 
             @SuppressWarnings("unchecked")
@@ -685,7 +690,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                 } else {
                     try {
                         if (logger.isDebugEnabled()) logger.debug("registering subscribe event");
-                        serverOrClient.registerEvent(subscribeEvent);
+                        endpoint.registerEvent(subscribeEvent);
                     } catch (Throwable t) {
                         signalError(t);
                         handlePending();
@@ -694,7 +699,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
             }
 
             final void handleSubscribeEvent() {
-                assert serverOrClient.isSelectorThread();
+                assert endpoint.isSelectorThread();
                 if (logger.isDebugEnabled()) {
                     logger.debug("subscribe event raised");
                     logger.debug("Start reading from {}", channelDescr());
@@ -737,7 +742,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
             public final void cancel() {
                 pauseReadEvent();
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Read subscription cancelled for chan {}",
+                    logger.debug("Read subscription cancelled for selectableChan {}",
                             channelDescr());
                 }
                 readScheduler.stop();
@@ -764,7 +769,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                     return;
                 }
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Read error signalled on chan {}: {}",
+                    logger.debug("Read error signalled on selectableChan {}: {}",
                             channelDescr(), error);
                 }
                 readScheduler.runOrSchedule();
@@ -822,7 +827,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                         }
 
                         // If we reach here then we must be in the selector thread.
-                        assert serverOrClient.isSelectorThread();
+                        assert endpoint.isSelectorThread();
                         if (demand.tryDecrement()) {
                             // we have demand.
                             try {
@@ -830,7 +835,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                                 if (bytes == EOF) {
                                     if (!completed) {
                                         if (logger.isDebugEnabled()) {
-                                            logger.debug("EOF read from chan: {}",
+                                            logger.debug("EOF read from selectableChan: {}",
                                                         channelDescr());
                                         }
                                         completed = true;
@@ -895,7 +900,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
                 } finally {
                     if (readScheduler.isStopped()) {
                         if (logger.isDebugEnabled()) {
-                            logger.debug("Read scheduler stopped from chan {0}", channelDescr());
+                            logger.debug("Read scheduler stopped from selectableChan {0}", channelDescr());
                         }
                     }
                     handlePending();
@@ -932,7 +937,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
 
         // A repeatable ReadEvent which is paused after firing and can
         // be resumed if required - see SelectableChannelFlowEvent;
-        final class ReadEvent extends SelectableChannelFlowEvent<T> {
+        final class ReadEvent extends SelectableChannelFlowEvent {
             final InternalReadSubscription sub;
             ReadEvent(T chan, InternalReadSubscription sub) {
                 super(SelectionKey.OP_READ, chan);
@@ -941,7 +946,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
             @Override
             protected final void signalEvent() {
                 try {
-                    serverOrClient.eventUpdated(this);
+                    endpoint.eventUpdated(this);
                     sub.signalReadable();
                 } catch(Throwable t) {
                     sub.signalError(t);
@@ -1071,7 +1076,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
     // When that happens, a slice of the data that has been read so far
     // is inserted into the returned buffer list, and if the current buffer
     // has remaining space, that space will be used to read more data when
-    // the chan becomes readable again.
+    // the selectableChan becomes readable again.
     private List<ByteBuffer> readAvailable(BufferSource buffersSource) throws IOException {
         ByteBuffer buf = buffersSource.getBuffer();
         assert buf.hasRemaining();
@@ -1081,7 +1086,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
         List<ByteBuffer> list = null;
         while (buf.hasRemaining()) {
             try {
-                while ((read = chan.read(buf)) > 0) {
+                while ((read = selectableChan.read(buf)) > 0) {
                     if (!buf.hasRemaining())
                         break;
                 }
@@ -1147,7 +1152,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
         long written = 0;
         while (remaining > written) {
             try {
-                long w = chan.write(srcs);
+                long w = selectableChan.write(srcs);
                 assert w >= 0 : "negative number of bytes written:" + w;
                 if (w == 0) {
                     break;
@@ -1166,7 +1171,7 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
         return written;
     }
 
-    private void resumeEvent(SelectableChannelFlowEvent<T> event,
+    private void resumeEvent(SelectableChannelFlowEvent event,
                              Consumer<Throwable> errorSignaler) {
         boolean registrationRequired;
         synchronized(lock) {
@@ -1175,22 +1180,22 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
         }
         try {
             if (registrationRequired) {
-                serverOrClient.registerEvent(event);
+                endpoint.registerEvent(event);
              } else {
-                serverOrClient.eventUpdated(event);
+                endpoint.eventUpdated(event);
             }
         } catch(Throwable t) {
             errorSignaler.accept(t);
         }
    }
 
-    private void pauseEvent(SelectableChannelFlowEvent<T> event,
+    private void pauseEvent(SelectableChannelFlowEvent event,
                             Consumer<Throwable> errorSignaler) {
         synchronized(lock) {
             event.pause();
         }
         try {
-            serverOrClient.eventUpdated(event);
+            endpoint.eventUpdated(event);
         } catch(Throwable t) {
             errorSignaler.accept(t);
         }
@@ -1215,6 +1220,6 @@ public abstract class SelectableChanTube<T extends SelectableChan> implements Fl
     }
 
     private String channelDescr() {
-        return String.valueOf(chan);
+        return String.valueOf(selectableChan);
     }
 }

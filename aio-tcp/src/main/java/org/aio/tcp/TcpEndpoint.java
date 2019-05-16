@@ -39,14 +39,14 @@
 package org.aio.tcp;
 
 import org.aio.core.ChanStagesImpl;
-import org.aio.core.selectable.SelectableServerOrClient;
-import org.aio.core.api.ServerOrClientAPI;
+import org.aio.core.api.EndpointAPI;
+import org.aio.core.selectable.SelectableEndpoint;
 import org.aio.core.common.BufferSupplier;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public abstract class TcpServerOrClient extends SelectableServerOrClient<SocketChan> implements ServerOrClientAPI {
-    TcpServerOrClient(AtomicLong IDS, SelectableServerOrClient.Builder builder, ChanStagesImpl chanStages) {
+public abstract class TcpEndpoint extends SelectableEndpoint implements EndpointAPI {
+    TcpEndpoint(AtomicLong IDS, SelectableEndpoint.Builder builder, ChanStagesImpl chanStages) {
         super(IDS, builder, chanStages);
     }
 

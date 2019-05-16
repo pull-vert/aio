@@ -41,7 +41,7 @@ package org.aio.core.selectable;
 import org.aio.core.ChanStagesImpl;
 import org.aio.core.api.ChanEvtsHandler;
 import org.aio.core.api.ChanStages;
-import org.aio.core.api.ServerOrClientAPI;
+import org.aio.core.api.EndpointAPI;
 import org.aio.core.common.BufferSupplier;
 import org.aio.core.common.CoreUtils;
 import org.aio.core.common.Pair;
@@ -51,10 +51,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.CancelledKeyException;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
+import java.nio.channels.*;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -66,11 +63,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
-public abstract class SelectableServerOrClient<T extends SelectableChan> implements ServerOrClientAPI {
+public abstract class SelectableEndpoint implements EndpointAPI {
 
-    private final Logger logger = LoggerFactory.getLogger(SelectableServerOrClient.class);
+    private final Logger logger = LoggerFactory.getLogger(SelectableEndpoint.class);
 
-    public abstract static class Builder implements ServerOrClientAPI.Builder {
+    public abstract static class Builder implements EndpointAPI.Builder {
         Executor executor;
 
         protected void setExecutor(Executor executor) {
@@ -81,7 +78,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
     /**
      * @author Fred Montariol
      */
-    public abstract static class StagesConfigurer implements ServerOrClientAPI.StagesConfigurer {
+    public abstract static class StagesConfigurer implements EndpointAPI.StagesConfigurer {
 
         protected final ChanStagesImpl chanStages;
 
@@ -96,7 +93,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
     }
 
     protected final long id;
-    private final SelectorManager<T> selMgr;
+    private final SelectorManager selMgr;
     /** A Set of, deadline first, ordered timeout events. */
     private final TreeSet<TimeoutEvent> timeouts;
     private final boolean isDefaultExecutor;
@@ -108,7 +105,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
      *
      * @param IDS the atomic provider for ID
      */
-    protected SelectableServerOrClient(AtomicLong IDS, Builder builder, ChanStagesImpl chanStages) {
+    protected SelectableEndpoint(AtomicLong IDS, Builder builder, ChanStagesImpl chanStages) {
         timeouts = new TreeSet<>();
         id = IDS.incrementAndGet();
         Executor ex = builder.executor;
@@ -120,7 +117,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
         }
         delegatingExecutor = new DelegatingExecutor(this::isSelectorThread, ex);
         try {
-            selMgr = new SelectorManager<>(this);
+            selMgr = new SelectorManager(this);
         } catch (IOException e) {
             // unlikely
             throw new UncheckedIOException(e);
@@ -151,7 +148,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
      *
      * If exchange needs to change interest ops, then call registerEvent() again.
      */
-    void registerEvent(AsyncEvent<T> exchange) {
+    void registerEvent(AsyncEvent exchange) {
         selMgr.register(exchange);
     }
 
@@ -159,7 +156,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
      * Allows an AsyncEvent to modify its getInterestOps.
      * @param event The modified event.
      */
-    void eventUpdated(AsyncEvent<T> event) {
+    void eventUpdated(AsyncEvent event) {
         assert !(event instanceof AsyncTriggerEvent);
         selMgr.eventUpdated(event);
     }
@@ -195,9 +192,9 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
         return super.toString() + ("(" + id + ")");
     }
 
-    public final String debugInterestOps(T channel) {
+    public final String debugInterestOps(SelectableChannel selectableChannel) {
         try {
-            SelectionKey key = channel.keyFor(selMgr.getSelector());
+            SelectionKey key = selectableChannel.keyFor(selMgr.getSelector());
             if (key == null) return "channel not registered with selector";
             String keyInterestOps = key.isValid()
                     ? "key.interestOps=" + key.interestOps() : "invalid key";
@@ -328,17 +325,17 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
      * by the SelectorManager thread. One of these objects required per
      * connection.
      */
-    static class SelectorAttachment<T extends SelectableChan> {
+    static class SelectorAttachment {
         private final Logger logger = LoggerFactory.getLogger(SelectorAttachment.class);
 
-        private final T chan;
+        private final SelectableChannel selectableChannel;
         private final Selector selector;
-        private final Set<AsyncEvent<T>> pending;
+        private final Set<AsyncEvent> pending;
         private int interestOps;
 
-        SelectorAttachment(T chan, Selector selector) {
+        SelectorAttachment(SelectableChannel selectableChannel, Selector selector) {
             this.pending = new HashSet<>();
-            this.chan = chan;
+            this.selectableChannel = selectableChannel;
             this.selector = selector;
         }
 
@@ -351,7 +348,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
          *
          * @param e The event
          */
-        void register(AsyncEvent<T> e) {
+        void register(AsyncEvent e) {
             int newOps = e.getInterestOps();
             // re register interest if we are not already interested
             // in the event. If the event is paused, then the pause will
@@ -364,11 +361,11 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
             if (reRegister) {
                 // first time registration happens here also
                 try {
-                    chan.register(selector, interestOps, this);
+                    selectableChannel.register(selector, interestOps, this);
                 } catch (Throwable x) {
                     abortPending(x);
                 }
-            } else if (!chan.isOpen()) {
+            } else if (!selectableChannel.isOpen()) {
                 abortPending(new ClosedChannelException());
             }
         }
@@ -377,7 +374,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
          * Returns a Stream<AsyncEvents> containing only events that are
          * registered with the given {@code interestOps}.
          */
-        Stream<AsyncEvent<T>> events(int interestOps) {
+        Stream<AsyncEvent> events(int interestOps) {
             return pending.stream()
                     .filter(ev -> (ev.getInterestOps() & interestOps) != 0);
         }
@@ -389,7 +386,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
         void resetInterestOps(int interestOps) {
             int newOps = 0;
 
-            Iterator<AsyncEvent<T>> itr = pending.iterator();
+            Iterator<AsyncEvent> itr = pending.iterator();
             while (itr.hasNext()) {
                 AsyncEvent event = itr.next();
                 int evops = event.getInterestOps();
@@ -405,7 +402,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
             }
 
             this.interestOps = newOps;
-            SelectionKey key = chan.keyFor(selector);
+            SelectionKey key = selectableChannel.keyFor(selector);
             if (newOps == 0 && key != null && pending.isEmpty()) {
                 key.cancel();
             } else {
@@ -415,14 +412,14 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
                     }
                     key.interestOps(newOps);
                     // double check after
-                    if (!chan.isOpen()) {
+                    if (!selectableChannel.isOpen()) {
                         abortPending(new ClosedChannelException());
                         return;
                     }
                     assert key.interestOps() == newOps;
                 } catch (CancelledKeyException x) {
                     // channel may have been closed
-                    if (logger.isDebugEnabled()) logger.debug("key cancelled for {}", chan);
+                    if (logger.isDebugEnabled()) logger.debug("key cancelled for {}", selectableChannel);
                     abortPending(x);
                 }
             }
@@ -439,11 +436,11 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
             }
         }
 
-        T getChan() {
-            return chan;
+        SelectableChannel channel() {
+            return selectableChannel;
         }
 
-        Set<AsyncEvent<T>> getPending() {
+        Set<AsyncEvent> getPending() {
             return pending;
         }
 
@@ -485,7 +482,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
     /**
      * Main event loop for this client or server's {@link Selector}
      */
-    protected final static class SelectorManager<T extends SelectableChan> extends Thread {
+    protected final static class SelectorManager extends Thread {
 
         private final Logger logger = LoggerFactory.getLogger(SelectorManager.class);
 
@@ -516,13 +513,13 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
 
         private final Selector selector;
         private volatile boolean closed;
-        private final List<AsyncEvent<T>> registrations;
+        private final List<AsyncEvent> registrations;
         private final List<AsyncTriggerEvent> deregistrations;
-        SelectableServerOrClient<T> owner;
+        SelectableEndpoint owner;
 
-        SelectorManager(SelectableServerOrClient<T> ref) throws IOException {
+        SelectorManager(SelectableEndpoint ref) throws IOException {
             super(null, null,
-                    "SelectableServerOrClient-" + ref.id + "-SelectorManager",
+                    "SelectableEndpoint-" + ref.id + "-SelectorManager",
                     0, false);
             owner = ref;
             registrations = new ArrayList<>();
@@ -531,12 +528,12 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
         }
 
         @SuppressWarnings("unchecked")
-        void eventUpdated(AsyncEvent<T> e) {
+        void eventUpdated(AsyncEvent e) {
             // if in this selector event loop thread
             if (Thread.currentThread() == this) {
-                SelectionKey key = e.getChan().keyFor(selector);
+                SelectionKey key = e.channel().keyFor(selector);
                 if (key != null && key.isValid()) {
-                    SelectorAttachment<T> sa = (SelectorAttachment<T>) key.attachment();
+                    SelectorAttachment sa = (SelectorAttachment) key.attachment();
                     sa.register(e);
                 } else if (e.getInterestOps() != 0){
                     // We don't care about paused events.
@@ -554,13 +551,13 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
 
         // This returns immediately. So caller not allowed to send/receive
         // on connection.
-        synchronized void register(AsyncEvent<T> e) {
+        synchronized void register(AsyncEvent e) {
             registrations.add(e);
             selector.wakeup();
         }
 
-        public synchronized void cancel(T e) {
-            SelectionKey key = e.keyFor(selector);
+        public synchronized void cancel(SelectableChannel selectableChannel) {
+            SelectionKey key = selectableChannel.keyFor(selector);
             if (key != null) {
                 key.cancel();
             }
@@ -601,19 +598,19 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
                         // clear deregistrations because we just handle all of them
                         deregistrations.clear();
 
-                        for (AsyncEvent<T> event : registrations) {
+                        for (AsyncEvent event : registrations) {
                             if (event instanceof AsyncTriggerEvent) {
                                 readyList.add(event);
                                 continue;
                             }
-                            // Get SelectableChan associated with the event
-                            T chan = event.getChan();
+                            // Get SelectableChannel associated with the event
+                            SelectableChannel selectableChannel = event.channel();
                             SelectionKey key = null;
                             try {
                                 // Retrieves the key representing the channel's registration
                                 // with the given selector
-                                key = chan.keyFor(selector);
-                                SelectorAttachment<T> sa;
+                                key = selectableChannel.keyFor(selector);
+                                SelectorAttachment sa;
                                 if (key == null || !key.isValid()) {
                                     if (key != null) {
                                         // key is canceled.
@@ -621,23 +618,23 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
                                         // before registering the new event.
                                         selector.selectNow();
                                     }
-                                    sa = new SelectorAttachment<>(chan, selector);
+                                    sa = new SelectorAttachment(selectableChannel, selector);
                                 } else {
-                                    sa = (SelectorAttachment<T>) key.attachment();
+                                    sa = (SelectorAttachment) key.attachment();
                                 }
                                 // may throw IOE if channel closed: that's OK
                                 // call SelectableChannel.register(selector, interestop, sa)
                                 // with interestop from event and SelectableChannel, Selector
                                 // from SelectorAttachment
                                 sa.register(event);
-                                if (!chan.isOpen()) {
+                                if (!selectableChannel.isOpen()) {
                                     throw new IOException("Channel closed");
                                 }
                             } catch (IOException e) {
                                 if (logger.isDebugEnabled())
                                     logger.debug("Got {} while handling registration events",
                                             e.getClass().getName());
-                                chan.close();
+                                selectableChannel.close();
                                 // let the event abort deal with it
                                 errorList.add(new Pair<>(event, e));
                                 if (key != null) {
@@ -665,12 +662,12 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
                     // clear errorList because we just handle all of them
                     errorList.clear();
 
-                    // Check whether serverOrClient is still alive, and if not,
+                    // Check whether selectableEndpoint is still alive, and if not,
                     // gracefully stop this thread
                     if (owner.isNotReferenced()) {
                         if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                 getName(),
-                                "SelectableServerOrClient no longer referenced. Exiting...");
+                                "SelectableEndpoint no longer referenced. Exiting...");
                         return;
                     }
 
@@ -712,12 +709,12 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
                     //debugPrint(selector);
                     int n = selector.select(millis == 0 ? NODEADLINE : millis);
                     if (n == 0) {
-                        // Check whether serverOrClient is still alive, and if not,
+                        // Check whether selectableEndpoint is still alive, and if not,
                         // gracefully stop this thread
                         if (owner.isNotReferenced()) {
                             if (logger.isTraceEnabled()) logger.trace("{}: {}",
                                     getName(),
-                                    "SelectableServerOrClient no longer referenced. Exiting...");
+                                    "SelectableEndpoint no longer referenced. Exiting...");
                             return;
                         }
                         owner.purgeTimeoutsAndReturnNextDeadline();
@@ -728,9 +725,9 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
                     assert errorList.isEmpty();
 
                     for (SelectionKey key : keys) {
-                        SelectorAttachment<T> sa = (SelectorAttachment<T>) key.attachment();
+                        SelectorAttachment sa = (SelectorAttachment) key.attachment();
                         if (!key.isValid()) {
-                            IOException ex = sa.getChan().isOpen()
+                            IOException ex = sa.channel().isOpen()
                                     ? new IOException("Invalid key")
                                     : new ClosedChannelException();
                             sa.getPending().forEach(e -> errorList.add(new Pair<>(e,ex)));
@@ -772,7 +769,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
                     // This terminates thread. So, better just print stack trace
                     String err = CoreUtils.stackTrace(e);
                     logger.error("{}: {}: {}", getName(),
-                            "SelectableServerOrClient shutting down due to fatal error", err);
+                            "SelectableEndpoint shutting down due to fatal error", err);
                 }
                 if (logger.isDebugEnabled()) logger.debug("shutting down", e);
             } finally {
@@ -799,23 +796,23 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
     // maximum 3 direct byte buffers (SocketTube.MAX_BUFFERS) that
     // are used for reading encrypted bytes off the channel before
     // copying and subsequent unwrapping.
-    protected static final class SSLDirectBufferSupplier<T extends SelectableChan> implements BufferSupplier {
+    protected static final class SSLDirectBufferSupplier implements BufferSupplier {
 
         private final Logger logger = LoggerFactory.getLogger(SSLDirectBufferSupplier.class);
 
         private static final int POOL_SIZE = SelectableChanTube.MAX_BUFFERS;
         private final ByteBuffer[] pool = new ByteBuffer[POOL_SIZE];
-        private final SelectableServerOrClient<T> serverOrClient;
+        private final SelectableEndpoint selectableEndpoint;
         private int tail, count; // no need for volatile: only accessed in SM thread.
 
-        public SSLDirectBufferSupplier(SelectableServerOrClient<T> serverOrClient) {
-            this.serverOrClient = Objects.requireNonNull(serverOrClient);
+        public SSLDirectBufferSupplier(SelectableEndpoint selectableEndpoint) {
+            this.selectableEndpoint = Objects.requireNonNull(selectableEndpoint);
         }
 
         // Gets a buffer from the pool, or allocates a new one if needed.
         @Override
         public ByteBuffer get() {
-            assert serverOrClient.isSelectorThread();
+            assert selectableEndpoint.isSelectorThread();
             assert tail <= POOL_SIZE : "allocate tail is " + tail;
             ByteBuffer buf;
             if (tail == 0) {
@@ -845,7 +842,7 @@ public abstract class SelectableServerOrClient<T extends SelectableChan> impleme
         // Returns the given buffer to the pool.
         @Override
         public void recycle(ByteBuffer buffer) {
-            assert serverOrClient.isSelectorThread();
+            assert selectableEndpoint.isSelectorThread();
             assert buffer.isDirect();
             assert !buffer.hasRemaining();
             assert tail < POOL_SIZE : "recycle tail is " + tail;

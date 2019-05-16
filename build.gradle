@@ -65,6 +65,6 @@ subprojects {
 
 // execute ./gradlew wrapper then remove .gradle directory when version change
 wrapper {
-    gradleVersion='5.4'
+    gradleVersion='5.4.1'
     distributionType=Wrapper.DistributionType.ALL
 }

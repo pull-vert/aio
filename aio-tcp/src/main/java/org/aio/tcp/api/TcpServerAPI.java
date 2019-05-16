@@ -38,15 +38,15 @@
 
 package org.aio.tcp.api;
 
-import org.aio.core.api.ServerOrClientAPI;
+import org.aio.core.api.EndpointAPI;
 import org.aio.tcp.TcpServerImpl;
 
-public interface TcpServerAPI extends ServerOrClientAPI {
+public interface TcpServerAPI extends EndpointAPI {
 
     /**
      * A builder of {@link TcpServerAPI}.
      */
-    public static interface Builder extends ServerOrClientAPI.Builder {
+    public static interface Builder extends EndpointAPI.Builder {
 
         /**
          * Sets the TCP port for TcpServer

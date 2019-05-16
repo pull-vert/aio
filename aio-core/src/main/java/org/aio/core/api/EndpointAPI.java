@@ -43,10 +43,10 @@ import javax.net.ssl.SSLParameters;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-public interface ServerOrClientAPI {
+public interface EndpointAPI {
 
     /**
-     * A builder of {@link ServerOrClientAPI}.
+     * A builder of {@link EndpointAPI}.
      */
     public static interface Builder {
 
@@ -138,12 +138,12 @@ public interface ServerOrClientAPI {
         public <U extends ChanEvtsHandler> StagesConfigurer addLast(String name, U chanEvtsHandler);
 
         /**
-         * Returns a new {@link ServerOrClientAPI} built from the
+         * Returns a new {@link EndpointAPI} built from the
          * current state of this configurer.
          *
          * @return a new server or client
          */
-        public ServerOrClientAPI build();
+        public EndpointAPI build();
     }
 
     /**
@@ -153,7 +153,7 @@ public interface ServerOrClientAPI {
      *
      * <p> Even though this method may return an empty optional, the {@code
      * TcpClientOrServer} may still have an non-exposed {@linkplain
-     * ServerOrClientAPI.Builder#executor(Executor) default executor} that
+     * EndpointAPI.Builder#executor(Executor) default executor} that
      * is used for executing asynchronous and dependent tasks.
      *
      * @return an {@code Optional} containing this client or server's

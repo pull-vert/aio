@@ -39,7 +39,7 @@
 package org.aio.tcp;
 
 import org.aio.core.api.ChanEvtsHandler;
-import org.aio.core.api.ServerOrClientAPI;
+import org.aio.core.api.EndpointAPI;
 import org.aio.tcp.api.TcpServerAPI;
 
 import javax.net.ssl.SSLContext;
@@ -96,14 +96,14 @@ public interface TcpServer extends TcpServerAPI {
         FirstStagesConfigurer configureStages();
     }
 
-    public static interface FirstStagesConfigurer extends ServerOrClientAPI.FirstStagesConfigurer {
+    public static interface FirstStagesConfigurer extends EndpointAPI.FirstStagesConfigurer {
         @Override
         <U extends ChanEvtsHandler> StagesConfigurer stage1(String name, U chanEvtsHandler);
     }
 
-    public static interface StagesConfigurer extends ServerOrClientAPI.StagesConfigurer {
+    public static interface StagesConfigurer extends EndpointAPI.StagesConfigurer {
         @Override
-        <U extends ChanEvtsHandler> ServerOrClientAPI.StagesConfigurer addLast(String name, U chanEvtsHandler);
+        <U extends ChanEvtsHandler> EndpointAPI.StagesConfigurer addLast(String name, U chanEvtsHandler);
 
         @Override
         TcpServer build();
