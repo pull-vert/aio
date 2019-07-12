@@ -34,6 +34,13 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
   * Executor used in tests can be different from normal Executor
 * Use [JEP238 multi-release jar](http://openjdk.java.net/jeps/238), for exemple for TLSv1.3
 
+## Inspirations, nice articles
+* Netty
+* Aeron
+* [reactive IO and backpressure - akka](https://medium.com/@unmeshvjoshi/understanding-reactive-io-and-back-pressure-with-your-own-akka-http-server-d4b64921059a)
+* [IO Reactor pattern](https://github.com/iluwatar/java-design-patterns/tree/master/reactor)
+* [RSocket](http://rsocket.io/docs/FAQ)
+
 ## License
 AIO is Open Source Software released under the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html) and is subject to the [Classpath Exception](https://www.gnu.org/software/classpath/license.html).
 
