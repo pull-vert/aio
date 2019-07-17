@@ -96,7 +96,6 @@ public abstract class SubscriberWrapper
     private final SequentialScheduler pushScheduler;
     private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
     final AtomicLong upstreamWindow = new AtomicLong(0);
-    private final Lock downstreamCompletedLock = new ReentrantLock();
 
     /**
      * Wraps the given downstream subscriber. For each call to {@link
@@ -109,16 +108,14 @@ public abstract class SubscriberWrapper
      * completion can be signaled at any time, but normal completion must not be
      * signaled before onComplete() is called.
      */
-    public SubscriberWrapper()
-    {
+    public SubscriberWrapper() {
         this.outputQ = new ConcurrentLinkedQueue<>();
         this.cf = new MinimalFuture<>();
         cf.whenComplete((v,t) -> {
             if (t != null)
                 errorCommon(t);
         });
-        this.pushScheduler =
-                SequentialScheduler.synchronizedScheduler(new DownstreamPusher());
+        this.pushScheduler = SequentialScheduler.synchronizedScheduler(new DownstreamPusher());
         this.downstreamSubscription = new SubscriptionBase(pushScheduler,
                 this::downstreamCompletion);
     }
@@ -138,8 +135,7 @@ public abstract class SubscriberWrapper
      *
      * @param downstreamWrapper downstream destination
      */
-    public SubscriberWrapper(Subscriber<? super Bybu> downstreamWrapper)
-    {
+    public SubscriberWrapper(Subscriber<? super Bybu> downstreamWrapper) {
         this();
         subscribe(downstreamWrapper);
     }
@@ -235,7 +231,7 @@ public abstract class SubscriberWrapper
         Objects.requireNonNull(bybu);
         if (complete) {
             assert bybu.remaining() == 0;
-            boolean closing = closing();
+            var closing = closing();
             if (logger.isDebugEnabled())
                 logger.debug("completionAcknowledged upstreamCompleted:{},"
                                 + " downstreamCompleted:{}, closing:{}",
@@ -275,6 +271,9 @@ public abstract class SubscriberWrapper
      * Invoked whenever it 'may' be possible to push buffers downstream.
      */
     class DownstreamPusher implements Runnable {
+
+        private final Lock downstreamCompletedLock = new ReentrantLock();
+
         @Override
         public void run() {
             try {
@@ -300,7 +299,7 @@ public abstract class SubscriberWrapper
                     break;
             }
             // If there was an error, send it downstream.
-            Throwable error = errorRef.get();
+            var error = errorRef.get();
             if (error != null && outputQ.isEmpty()) {
                 downstreamCompletedLock.lock();
                 try {
@@ -310,8 +309,7 @@ public abstract class SubscriberWrapper
                 } finally {
                     downstreamCompletedLock.unlock();
                 }
-                if (logger.isDebugEnabled())
-                    logger.debug("DownstreamPusher: forwarding error downstream: " + error);
+                if (logger.isDebugEnabled()) logger.debug("DownstreamPusher: forwarding error downstream: " + error);
                 pushScheduler.stop();
                 outputQ.clear();
                 downstreamSubscriber.onError(error);
@@ -328,12 +326,11 @@ public abstract class SubscriberWrapper
                 }
             }
 
-            boolean datasent = false;
+            var datasent = false;
             while (!outputQ.isEmpty() && downstreamSubscription.tryDecrement()) {
                 Bybu b = outputQ.poll();
                 Objects.requireNonNull(b);
-                if (logger.isDebugEnabled())
-                    logger.debug("DownstreamPusher: Pushing {} bytes downstream", b.remaining());
+                if (logger.isDebugEnabled()) logger.debug("DownstreamPusher: Pushing {} bytes downstream", b.remaining());
                 downstreamSubscriber.onNext(b);
                 datasent = true;
             }
@@ -343,9 +340,9 @@ public abstract class SubscriberWrapper
     }
 
     void upstreamWindowUpdate() {
-        long downstreamQueueSize = outputQ.size();
-        long upstreamWindowSize = upstreamWindow.get();
-        long n = upstreamWindowUpdate(upstreamWindowSize, downstreamQueueSize);
+        var downstreamQueueSize = outputQ.size();
+        var upstreamWindowSize = upstreamWindow.get();
+        var n = upstreamWindowUpdate(upstreamWindowSize, downstreamQueueSize);
         if (logger.isDebugEnabled())
             logger.debug("upstreamWindowUpdate, downstreamQueueSize:{}, upstreamWindow:{}",
                     downstreamQueueSize, upstreamWindowSize);
@@ -369,7 +366,7 @@ public abstract class SubscriberWrapper
     @Override
     public void onNext(List<ByteBuffer> item) {
         if (logger.isDebugEnabled()) logger.debug("onNext");
-        long prev = upstreamWindow.getAndDecrement();
+        var prev = upstreamWindow.getAndDecrement();
         if (prev <= 0)
             throw new IllegalStateException("invalid onNext call");
         incomingCaller(item, false);
@@ -476,7 +473,7 @@ public abstract class SubscriberWrapper
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
+        var sb = new StringBuilder();
         sb.append("SubscriberWrapper:")
                 .append(" upstreamCompleted: ").append(Boolean.toString(upstreamCompleted))
                 .append(" upstreamWindow: ").append(upstreamWindow.toString())
