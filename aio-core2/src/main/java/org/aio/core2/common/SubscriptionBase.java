@@ -42,6 +42,8 @@ import org.aio.core2.util.concurrent.SequentialScheduler;
 
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
@@ -58,6 +60,8 @@ public class SubscriptionBase implements Flow.Subscription {
     final Runnable cancelAction; // when subscription cancelled, run this
     final AtomicBoolean cancelled;
     final Consumer<Throwable> onError;
+
+    private final Lock toStringLock = new ReentrantLock();
 
     public SubscriptionBase(SequentialScheduler scheduler, Runnable cancelAction) {
         this(scheduler, cancelAction, null);
@@ -87,9 +91,14 @@ public class SubscriptionBase implements Flow.Subscription {
     }
 
     @Override
-    public synchronized String toString() {
-        return "SubscriptionBase: window = " + demand.get() +
-                " cancelled = " + cancelled.toString();
+    public String toString() {
+        toStringLock.lock();
+        try {
+            return "SubscriptionBase: window = " + demand.get() +
+                    " cancelled = " + cancelled.toString();
+        } finally {
+            toStringLock.unlock();
+        }
     }
 
     /**

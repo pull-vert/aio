@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.locks.Lock;
 import java.util.function.Function;
 
 import static java.lang.String.format;
@@ -208,48 +207,6 @@ public final class CoreUtils {
             remain += buf.remaining();
         }
         return remain;
-    }
-
-    public static boolean hasRemaining(List<ByteBuffer> bufs, Lock lock) {
-        lock.lock();
-        try {
-            for (var buf : bufs) {
-                if (buf.hasRemaining())
-                    return true;
-            }
-        } finally {
-            lock.unlock();
-        }
-        return false;
-    }
-
-    public static long remaining(List<ByteBuffer> bufs, Lock lock) {
-        var remain = 0L;
-        lock.lock();
-        try {
-            for (var buf : bufs) {
-                remain += buf.remaining();
-            }
-        } finally {
-            lock.unlock();
-        }
-        return remain;
-    }
-
-    public static int remaining(List<ByteBuffer> bufs, int max, Lock lock) {
-        var remain = 0L;
-        lock.lock();
-        try {
-            for (var buf : bufs) {
-                remain += buf.remaining();
-                if (remain > max) {
-                    throw new IllegalArgumentException("too many bytes");
-                }
-            }
-        } finally {
-            lock.unlock();
-        }
-        return (int) remain;
     }
 
     public static int remaining(ByteBuffer[] refs, int max) {
