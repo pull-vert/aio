@@ -12,7 +12,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
- * Bybu is a virtual ByteBuffer wrapping a single or a List of {@link ByteBuffer}(s)
+ * Bybu is a ByteBuffer abstraction wrapping a {@link List}<{@link ByteBuffer}(s)>
+ * Can be empty, single value or multiple
  */
 public interface Bybu {
 
