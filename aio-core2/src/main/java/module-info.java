@@ -6,10 +6,11 @@
  * file that accompanied this code.
  */
 
-rootProject.name = 'aio'
-
-include 'aio-core'
-include 'aio-core2'
-include 'aio-http2'
-include 'aio-tcp'
-include 'aio-tcp-samples'
+module aio.core {
+    requires org.slf4j;
+    requires java.net.http;
+//    exports org.aio.core2;
+    exports org.aio.core2.api;
+    exports org.aio.core2.common;
+    exports org.aio.core2.util.concurrent;
+}

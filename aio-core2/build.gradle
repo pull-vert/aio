@@ -6,10 +6,4 @@
  * file that accompanied this code.
  */
 
-rootProject.name = 'aio'
-
-include 'aio-core'
-include 'aio-core2'
-include 'aio-http2'
-include 'aio-tcp'
-include 'aio-tcp-samples'
+ext.moduleName='aio.core2'
