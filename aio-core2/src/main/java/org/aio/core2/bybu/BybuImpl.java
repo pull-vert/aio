@@ -36,30 +36,41 @@
  * questions.
  */
 
-package org.aio.core2.common;
+package org.aio.core2.bybu;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * Abstraction over a single or a List of {@link ByteBuffer}(s)
- */
-public class Bybu {
+public class BybuImpl implements Bybu {
 
     private final Lock lock = new ReentrantLock();
 
     private final List<ByteBuffer> bufs;
 
-    public Bybu(List<ByteBuffer> bufs) {
+    /**
+     * empty = no ByteBuffer
+     */
+    BybuImpl() {
+        this(List.of());
+    }
+
+    /**
+     * @param buf single ByteBuffer
+     */
+    BybuImpl(ByteBuffer buf) {
+        this(List.of(buf));
+    }
+
+    /**
+     * @param bufs List of ByteBuffer
+     */
+    BybuImpl(List<ByteBuffer> bufs) {
         this.bufs = bufs;
     }
 
-    public Bybu(ByteBuffer buf) {
-        this.bufs = List.of(buf);
-    }
-
+    @Override
     public boolean hasRemaining() {
         lock.lock();
         try {
@@ -73,6 +84,7 @@ public class Bybu {
         return false;
     }
 
+    @Override
     public long remaining() {
         var remain = 0L;
         lock.lock();
@@ -86,6 +98,7 @@ public class Bybu {
         return remain;
     }
 
+    @Override
     public int remaining(int max) {
         var remain = 0L;
         lock.lock();

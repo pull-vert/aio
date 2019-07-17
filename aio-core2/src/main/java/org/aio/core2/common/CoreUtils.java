@@ -40,16 +40,12 @@ package org.aio.core2.common;
 
 import org.slf4j.Logger;
 
-import javax.net.ssl.SSLException;
 import java.io.*;
-import java.net.ConnectException;
-import java.net.http.HttpTimeoutException;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -231,7 +227,6 @@ public final class CoreUtils {
     // Put all these static 'empty' singletons here
     public static final ByteBuffer EMPTY_BYTEBUFFER = ByteBuffer.allocate(0);
     public static final ByteBuffer[] EMPTY_BB_ARRAY = new ByteBuffer[0];
-    static final List<ByteBuffer> EMPTY_BB_LIST = List.of();
 
     /**
      * Returns a slice of size {@code amount} from the given buffer. If the
@@ -303,19 +298,5 @@ public final class CoreUtils {
         } else {
             return 1 << (32 - Integer.numberOfLeadingZeros(n - 1));
         }
-    }
-
-    public static Throwable toConnectException(Throwable e) {
-        if (e == null) return null;
-        e = getCompletionCause(e);
-        if (e instanceof ConnectException) return e;
-        if (e instanceof SecurityException) return e;
-        if (e instanceof SSLException) return e;
-        if (e instanceof Error) return e;
-        if (e instanceof HttpTimeoutException) return e;
-        var cause = e;
-        e = new ConnectException(e.getMessage());
-        e.initCause(cause);
-        return e;
     }
 }

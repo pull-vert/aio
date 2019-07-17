@@ -38,6 +38,7 @@
 
 package org.aio.core2.common;
 
+import org.aio.core2.bybu.Bybu;
 import org.aio.core2.api.FlowTube;
 import org.aio.core2.util.concurrent.MinimalFuture;
 import org.aio.core2.util.concurrent.SequentialScheduler;
@@ -46,7 +47,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -63,8 +63,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * downstream flow control automatically and upstream flow control automatically
  * by default.
  * <p>
- * Processing is done by implementing the {@link #incoming(List, boolean)} method
- * which supplies buffers from upstream. This method (or any other method)
+ * Processing is done by implementing the {@link #incoming(Bybu, boolean)} method
+ * which supplies virtual ByteBuffer from upstream. This method (or any other method)
  * can then call the outgoing() method to deliver processed buffers downstream.
  * <p>
  * Upstream error signals are delivered downstream directly. Cancellation from
@@ -76,7 +76,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * at any time.
  */
 public abstract class SubscriberWrapper
-        implements FlowTube.TubeSubscriber, Closeable, Flow.Processor<List<ByteBuffer>,Bybu> {
+        implements FlowTube.TubeSubscriber, Closeable, Flow.Processor<Bybu, Bybu> {
 
     private final Logger logger = LoggerFactory.getLogger(SubscriberWrapper.class);
 
@@ -99,7 +99,7 @@ public abstract class SubscriberWrapper
 
     /**
      * Wraps the given downstream subscriber. For each call to {@link
-     * #onNext(List<ByteBuffer>) } the given filter function is invoked
+     * #onNext(Bybu) } the given filter function is invoked
      * and the list (if not empty) returned is passed downstream.
      *
      * A {@code CompletableFuture} is supplied which can be used to signal an
@@ -128,7 +128,7 @@ public abstract class SubscriberWrapper
 
     /**
      * Wraps the given downstream wrapper in this. For each call to
-     * {@link #onNext(List<ByteBuffer>) } the incoming() method is called.
+     * {@link #onNext(Bybu) } the incoming() method is called.
      *
      * The {@code downstreamCF} from the downstream wrapper is linked to this
      * wrappers notifier.
@@ -145,10 +145,10 @@ public abstract class SubscriberWrapper
      * downstream, must be provided to the {@link #outgoing(Bybu, boolean)}}
      * method.
      *
-     * @param buffers a List of ByteBuffers.
+     * @param bybu the virtual ByteBuffer.
      * @param complete if true then no more data will be added to the list
      */
-    protected abstract void incoming(List<ByteBuffer> buffers, boolean complete);
+    protected abstract void incoming(Bybu bybu, boolean complete);
 
     /**
      * This method is called to determine the window size to use at any time. The
@@ -200,20 +200,10 @@ public abstract class SubscriberWrapper
         return true;
     }
 
-    /**
-     * Delivers buffers of data downstream. After incoming()
-     * has been called complete == true signifying completion of the upstream
-     * subscription, data may continue to be delivered, up to when outgoing() is
-     * called complete == true, after which, the downstream subscription is
-     * completed.
-     *
-     * It's an error to call outgoing() with complete = true if incoming() has
-     * not previously been called with it.
-     */
     public void outgoing(ByteBuffer buffer, boolean complete) {
         Objects.requireNonNull(buffer);
         assert !complete || !buffer.hasRemaining();
-        outgoing(new Bybu(buffer), complete);
+        outgoing(Bybu.fromSingle(buffer), complete);
     }
 
     /**
@@ -227,6 +217,16 @@ public abstract class SubscriberWrapper
         return false;
     }
 
+    /**
+     * Delivers buffers of data downstream. After incoming()
+     * has been called complete == true signifying completion of the upstream
+     * subscription, data may continue to be delivered, up to when outgoing() is
+     * called complete == true, after which, the downstream subscription is
+     * completed.
+     *
+     * It's an error to call outgoing() with complete = true if incoming() has
+     * not previously been called with it.
+     */
     public void outgoing(Bybu bybu, boolean complete) {
         Objects.requireNonNull(bybu);
         if (complete) {
@@ -294,8 +294,7 @@ public abstract class SubscriberWrapper
                 case RESCHEDULE: pushScheduler.runOrSchedule(); return;
                 case RETURN: return;
                 default:
-                    errorRef.compareAndSet(null,
-                            new InternalError("unknown scheduling command"));
+                    errorRef.compareAndSet(null, new InternalError("unknown scheduling command"));
                     break;
             }
             // If there was an error, send it downstream.
@@ -329,7 +328,7 @@ public abstract class SubscriberWrapper
             var datasent = false;
             while (!outputQ.isEmpty() && downstreamSubscription.tryDecrement()) {
                 Bybu b = outputQ.poll();
-                Objects.requireNonNull(b);
+                Objects.requireNonNull(b); // aded by FMO
                 if (logger.isDebugEnabled()) logger.debug("DownstreamPusher: Pushing {} bytes downstream", b.remaining());
                 downstreamSubscriber.onNext(b);
                 datasent = true;
@@ -344,8 +343,7 @@ public abstract class SubscriberWrapper
         var upstreamWindowSize = upstreamWindow.get();
         var n = upstreamWindowUpdate(upstreamWindowSize, downstreamQueueSize);
         if (logger.isDebugEnabled())
-            logger.debug("upstreamWindowUpdate, downstreamQueueSize:{}, upstreamWindow:{}",
-                    downstreamQueueSize, upstreamWindowSize);
+            logger.debug("upstreamWindowUpdate, downstreamQueueSize:{}, upstreamWindow:{}", downstreamQueueSize, upstreamWindowSize);
         if (n > 0)
             upstreamRequest(n);
     }
@@ -364,7 +362,7 @@ public abstract class SubscriberWrapper
     }
 
     @Override
-    public void onNext(List<ByteBuffer> item) {
+    public void onNext(Bybu item) {
         if (logger.isDebugEnabled()) logger.debug("onNext");
         var prev = upstreamWindow.getAndDecrement();
         if (prev <= 0)
@@ -416,9 +414,9 @@ public abstract class SubscriberWrapper
         errorCommon(t);
     }
 
-    private void incomingCaller(List<ByteBuffer> l, boolean complete) {
+    private void incomingCaller(Bybu bybu, boolean complete) {
         try {
-            incoming(l, complete);
+            incoming(bybu, complete);
         } catch(Throwable t) {
             errorCommon(t);
         }
@@ -428,17 +426,17 @@ public abstract class SubscriberWrapper
     public void onComplete() {
         if (logger.isDebugEnabled()) logger.debug("upstream completed: " + toString());
         upstreamCompleted = true;
-        incomingCaller(CoreUtils.EMPTY_BB_LIST, true);
+        incomingCaller(Bybu.empty(), true);
         // pushScheduler will call checkCompletion()
         pushScheduler.runOrSchedule();
     }
 
     /** Adds the given data to the input queue. */
-    public void addData(ByteBuffer l) {
+    public void addData(ByteBuffer buf) {
         if (upstreamSubscription == null) {
             throw new IllegalStateException("can't add data before upstream subscriber subscribes");
         }
-        incomingCaller(List.of(l), false);
+        incomingCaller(Bybu.fromSingle(buf), false);
     }
 
     void checkCompletion() {

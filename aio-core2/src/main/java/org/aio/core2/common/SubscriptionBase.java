@@ -81,7 +81,7 @@ public class SubscriptionBase implements Flow.Subscription {
         try {
             if (demand.increase(n))
                 scheduler.runOrSchedule();
-        } catch(Throwable t) {
+        } catch (Throwable t) {
             if (onError != null) {
                 if (cancelled.getAndSet(true))
                     return;

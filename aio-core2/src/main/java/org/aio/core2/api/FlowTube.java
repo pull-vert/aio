@@ -38,15 +38,15 @@
 
 package org.aio.core2.api;
 
-import java.nio.ByteBuffer;
-import java.util.List;
+import org.aio.core2.bybu.Bybu;
+
 import java.util.concurrent.Flow;
 
 /**
  * FlowTube is an I/O abstraction that allows reading from and writing to a
  * destination asynchronously.
  * This is not a {@link Flow.Processor
- * Flow.Processor&lt;List&lt;ByteBuffer&gt;, List&lt;ByteBuffer&gt;&gt;},
+ * Flow.Processor&lt;Bybu,Bybu&gt;},
  * but rather models a publisher source and a subscriber sink in a bidirectional flow.
  * <p>
  * The {@code connectFlows} method should be called to connect the bidirectional
@@ -56,8 +56,8 @@ import java.util.concurrent.Flow;
  * its former readSubscriber, and {@code onSubscribe} on its new readSubscriber.
  */
 public interface FlowTube extends
-        Flow.Publisher<List<ByteBuffer>>,
-        Flow.Subscriber<List<ByteBuffer>> {
+        Flow.Publisher<Bybu>,
+        Flow.Subscriber<Bybu> {
 
     /**
      * A subscriber for reading from the bidirectional flow.
@@ -66,7 +66,7 @@ public interface FlowTube extends
      * Once {@code dropSubscription()} is called, the {@code TubeSubscriber}
      * should stop calling any method on its subscription.
      */
-    static interface TubeSubscriber extends Flow.Subscriber<List<ByteBuffer>> {
+    static interface TubeSubscriber extends Flow.Subscriber<Bybu> {
 
         /**
          * Called when the flow is connected again, and the subscription
@@ -83,7 +83,7 @@ public interface FlowTube extends
     /**
      * A publisher for writing to the bidirectional flow.
      */
-    static interface TubePublisher extends Flow.Publisher<List<ByteBuffer>> {
+    static interface TubePublisher extends Flow.Publisher<Bybu> {
 
     }
 
@@ -123,7 +123,7 @@ public interface FlowTube extends
      *           {@code TubeSubscriber}, otherwise a {@code TubeSubscriber}
      *           wrapper that delegates to {@code s}
      */
-    static TubeSubscriber asTubeSubscriber(Flow.Subscriber<? super List<ByteBuffer>> s) {
+    static TubeSubscriber asTubeSubscriber(Flow.Subscriber<? super Bybu> s) {
         if (s instanceof TubeSubscriber) {
             return (TubeSubscriber) s;
         }
@@ -139,7 +139,7 @@ public interface FlowTube extends
      *           {@code  TubePublisher}, otherwise a {@code TubePublisher}
      *           wrapper that delegates to {@code s}
      */
-    static TubePublisher asTubePublisher(Flow.Publisher<List<ByteBuffer>> p) {
+    static TubePublisher asTubePublisher(Flow.Publisher<Bybu> p) {
         if (p instanceof TubePublisher) {
             return (TubePublisher) p;
         }
@@ -153,12 +153,12 @@ public interface FlowTube extends
      */
     static abstract class AbstractTubePublisher implements TubePublisher {
         static final class TubePublisherWrapper extends AbstractTubePublisher {
-            final Flow.Publisher<List<ByteBuffer>> delegate;
-            public TubePublisherWrapper(Flow.Publisher<List<ByteBuffer>> delegate) {
+            final Flow.Publisher<Bybu> delegate;
+            public TubePublisherWrapper(Flow.Publisher<Bybu> delegate) {
                 this.delegate = delegate;
             }
             @Override
-            public void subscribe(Flow.Subscriber<? super List<ByteBuffer>> subscriber) {
+            public void subscribe(Flow.Subscriber<? super Bybu> subscriber) {
                 delegate.subscribe(subscriber);
             }
         }
@@ -171,8 +171,8 @@ public interface FlowTube extends
      */
     static abstract class AbstractTubeSubscriber implements TubeSubscriber {
         static final class TubeSubscriberWrapper extends  AbstractTubeSubscriber {
-            final Flow.Subscriber<? super List<ByteBuffer>> delegate;
-            TubeSubscriberWrapper(Flow.Subscriber<? super List<ByteBuffer>> delegate) {
+            final Flow.Subscriber<? super Bybu> delegate;
+            TubeSubscriberWrapper(Flow.Subscriber<? super Bybu> delegate) {
                 this.delegate = delegate;
             }
             @Override
@@ -182,7 +182,7 @@ public interface FlowTube extends
                 delegate.onSubscribe(subscription);
             }
             @Override
-            public void onNext(List<ByteBuffer> item) {
+            public void onNext(Bybu item) {
                 delegate.onNext(item);
             }
             @Override
