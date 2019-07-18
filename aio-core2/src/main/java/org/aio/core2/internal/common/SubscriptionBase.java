@@ -36,9 +36,9 @@
  * questions.
  */
 
-package org.aio.core2.common;
+package org.aio.core2.internal.common;
 
-import org.aio.core2.util.concurrent.SequentialScheduler;
+import org.aio.core2.internal.concurrent.SequentialScheduler;
 
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;

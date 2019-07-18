@@ -36,12 +36,12 @@
  * questions.
  */
 
-package org.aio.core2.common;
+package org.aio.core2.internal.common;
 
 import org.aio.core2.bybu.Bybu;
-import org.aio.core2.api.FlowTube;
-import org.aio.core2.util.concurrent.MinimalFuture;
-import org.aio.core2.util.concurrent.SequentialScheduler;
+import org.aio.core2.internal.FlowTube;
+import org.aio.core2.internal.concurrent.MinimalFuture;
+import org.aio.core2.internal.concurrent.SequentialScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

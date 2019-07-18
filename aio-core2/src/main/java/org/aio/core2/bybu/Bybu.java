@@ -8,6 +8,8 @@
 
 package org.aio.core2.bybu;
 
+import org.aio.core2.internal.bybu.BybuImpl;
+
 import java.nio.ByteBuffer;
 import java.util.List;
 

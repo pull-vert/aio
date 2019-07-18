@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.common.Pair
+ * This file is a fork of OpenJDK jdk.internal.net.http.AsyncTriggerEvent
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,30 +36,36 @@
  * questions.
  */
 
-package org.aio.core2.common;
+package org.aio.core2.internal;
+
+import java.io.IOException;
+import java.nio.channels.SelectableChannel;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
- * A simple paired value class
+ * An asynchronous event which is triggered only once from the selector manager
+ * thread as soon as event registration are handled.
  */
-public final class Pair<T, U> {
+public final class AsyncTriggerEvent extends AsyncEvent {
 
-    public Pair(T first, U second) {
-        this.second = second;
-        this.first = first;
+    private final Runnable trigger;
+    private final Consumer<? super IOException> errorHandler;
+    AsyncTriggerEvent(Consumer<? super IOException> errorHandler, Runnable trigger) {
+        super(0);
+        this.trigger = Objects.requireNonNull(trigger);
+        this.errorHandler = Objects.requireNonNull(errorHandler);
     }
-
-    public final T first;
-    public final U second;
-
-    // Because 'pair()' is shorter than 'new Pair<>()'.
-    // Sometimes this difference might be very significant (especially in a
-    // 80-ish characters boundary). Sorry diamond operator.
-    public static <T, U> Pair<T, U> pair(T first, U second) {
-        return new Pair<>(first, second);
-    }
-
+    /** Returns null */
     @Override
-    public String toString() {
-        return "(" + first + ", " + second + ")";
-    }
+    public SelectableChannel channel() { return null; }
+    /** Returns 0 */
+    @Override
+    public int getInterestOps() { return 0; }
+    @Override
+    public void handle() { trigger.run(); }
+    @Override
+    public void abort(IOException ioe) { errorHandler.accept(ioe); }
+    @Override
+    public boolean isRepeating() { return false; }
 }

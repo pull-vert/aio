@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.AsyncTriggerEvent
+ * This file is a fork of OpenJDK jdk.internal.net.http.AsyncEvent
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,36 +36,48 @@
  * questions.
  */
 
-package org.aio.core2;
+package org.aio.core2.internal;
 
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
-import java.util.Objects;
-import java.util.function.Consumer;
 
 /**
- * An asynchronous event which is triggered only once from the selector manager
- * thread as soon as event registration are handled.
+ * Event handling interface from {@link java.nio.channels.SelectableChannel}'s {@linkplain java.nio.channels.Selector selector}.
+ *
+ * If REPEATING is set then the event is not cancelled after being posted.
  */
-public final class AsyncTriggerEvent extends AsyncEvent {
+abstract class AsyncEvent {
 
-    private final Runnable trigger;
-    private final Consumer<? super IOException> errorHandler;
-    AsyncTriggerEvent(Consumer<? super IOException> errorHandler, Runnable trigger) {
-        super(0);
-        this.trigger = Objects.requireNonNull(trigger);
-        this.errorHandler = Objects.requireNonNull(errorHandler);
+    public static final int REPEATING = 0x2; // one off event if not set
+
+    protected final int flags;
+
+    AsyncEvent() {
+        this(0);
     }
-    /** Returns null */
-    @Override
-    public SelectableChannel channel() { return null; }
-    /** Returns 0 */
-    @Override
-    public int getInterestOps() { return 0; }
-    @Override
-    public void handle() { trigger.run(); }
-    @Override
-    public void abort(IOException ioe) { errorHandler.accept(ioe); }
-    @Override
-    public boolean isRepeating() { return false; }
+
+    AsyncEvent(int flags) {
+        this.flags = flags;
+    }
+
+    /** Returns the channel */
+    public abstract SelectableChannel channel();
+
+    /** Returns the selector interest op flags OR'd */
+    public abstract int getInterestOps();
+
+    /** Called when event occurs */
+    public abstract void handle();
+
+    /**
+     * Called when an error occurs during registration, or when the selector has
+     * been shut down. Aborts all exchanges.
+     *
+     * @param ioe  the IOException, or null
+     */
+    public abstract void abort(IOException ioe);
+
+    public boolean isRepeating() {
+        return (flags & REPEATING) != 0;
+    }
 }

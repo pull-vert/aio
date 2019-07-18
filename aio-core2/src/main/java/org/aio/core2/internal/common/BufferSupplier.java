@@ -6,7 +6,7 @@
  * file that accompanied this code.
  *
  *
- * This file is a fork of OpenJDK jdk.internal.net.http.common.Utils
+ * This file is a fork of OpenJDK jdk.internal.net.http.common.BufferSupplier
  *
  * In initial Copyright below, LICENCE file refers to OpendJDK licence, a copy
  * is provided in the OPENJDK_LICENCE file that accompanied this code.
@@ -36,82 +36,45 @@
  * questions.
  */
 
-package org.aio.core2.bybu;
+package org.aio.core2.internal.common;
 
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
-public class BybuImpl implements Bybu {
-
-    private final Lock lock = new ReentrantLock();
-
-    private final List<ByteBuffer> bufs;
+/**
+ *  This interface allows to recycle buffers used for SSL decryption.
+ *  Buffers that are used for reading SSL encrypted data are typically
+ *  very short lived, as it is necessary to aggregate their content
+ *  before calling SSLEngine::unwrap.
+ *  Because both reading and copying happen in the SelectorManager
+ *  thread, then it makes it possible to pool these buffers and
+ *  recycle them for the next socket read, instead of simply
+ *  letting them be GC'ed. That also makes it possible to use
+ *  direct byte buffers, and avoid another layer of copying by
+ *  the SocketChannel implementation.
+ *
+ *  The SelectableEndpoint has an implementation of this interface
+ *  that allows to reuse the same 3 direct buffers for reading
+ *  off SSL encrypted data.
+ *  The BufferSupplier::get method is called by SelectableTube
+ *  (see SelectableTube.SSLDirectBufferSource) and BufferSupplier::recycle
+ *  is called by SSLFlowDelegate.Reader.
+ **/
+public interface BufferSupplier extends Supplier<ByteBuffer> {
+    /**
+     * Returns a buffer to read encrypted data off the socket.
+     * @return a buffer to read encrypted data off the socket.
+     */
+    public ByteBuffer get();
 
     /**
-     * empty = no ByteBuffer
+     * Returns a buffer to the pool.
+     *
+     * @param buffer This must be a buffer previously obtained
+     *               by calling BufferSupplier::get. The caller must
+     *               not touch the buffer after returning it to
+     *               the pool.
      */
-    BybuImpl() {
-        this(List.of());
-    }
-
-    /**
-     * @param buf single ByteBuffer
-     */
-    BybuImpl(ByteBuffer buf) {
-        this(List.of(buf));
-    }
-
-    /**
-     * @param bufs List of ByteBuffer
-     */
-    BybuImpl(List<ByteBuffer> bufs) {
-        this.bufs = bufs;
-    }
-
-    @Override
-    public boolean hasRemaining() {
-        lock.lock();
-        try {
-            for (var buf : bufs) {
-                if (buf.hasRemaining())
-                    return true;
-            }
-        } finally {
-            lock.unlock();
-        }
-        return false;
-    }
-
-    @Override
-    public long remaining() {
-        var remain = 0L;
-        lock.lock();
-        try {
-            for (var buf : bufs) {
-                remain += buf.remaining();
-            }
-        } finally {
-            lock.unlock();
-        }
-        return remain;
-    }
-
-    @Override
-    public int remaining(int max) {
-        var remain = 0L;
-        lock.lock();
-        try {
-            for (var buf : bufs) {
-                remain += buf.remaining();
-                if (remain > max) {
-                    throw new IllegalArgumentException("too many bytes");
-                }
-            }
-        } finally {
-            lock.unlock();
-        }
-        return (int) remain;
-    }
+    public void recycle(ByteBuffer buffer);
 }
+

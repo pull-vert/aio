@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core2.api;
+package org.aio.core2.internal;
 
 import org.aio.core2.bybu.Bybu;
 

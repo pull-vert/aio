@@ -8,9 +8,6 @@
 
 module aio.core {
     requires org.slf4j;
-    exports org.aio.core2;
-    exports org.aio.core2.api;
+//    exports org.aio.core2;
     exports org.aio.core2.bybu;
-    exports org.aio.core2.common;
-    exports org.aio.core2.util.concurrent;
 }

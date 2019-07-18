@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core2.util.concurrent;
+package org.aio.core2.internal.concurrent;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;

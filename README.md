@@ -1,10 +1,10 @@
 # AIO
-AIO is a reactive event-driven client/server IO library written in Java, supporting File, TCP, UDP, HTTP/2 and in the future QUIC and HTTP/3 protocols.
+AIO is a reactive event-driven client/server IO library written in Java, supporting TCP and in the future File, UDP, HTTP/2, QUIC and HTTP/3 protocols.
 
 AIO started as a fork of OpenJDK's HttpClient incubating since JDK9 and released with JDK11.
 
 ## Getting it
-AIO require **JDK 9** or later, as it relies on j.u.c.Flow API and TLSv1.2. It is modularized with Jigsaw.
+AIO require LTS **JDK 11** or later, as it relies on j.u.c.Flow API and TLSv1.3. It is modularized with Jigsaw.
 
 ## Compile AIO
 Clone AIO from [GitHub](https://github.com/pull-vert/aio).
@@ -12,14 +12,14 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 ## WIP
 ### aio-core
 * Define Base API and abstract Classes for Selectable channels
-* SSL and TLSv1.2 support
+* Bybu, an abstraction over a single ```ByteBuffer``` or ```List<ByteBuffer>```
+* SSL and TLSv1.3 (and below) support
 
 ### aio-tcp
 * TcpServer
 * TcpClient
 
 ## TODO
-* Bybu, an abstraction over a single ```ByteBuffer``` or ```List<ByteBuffer>```
 * File module
 * HTTP/2 module
 * UDP module
@@ -44,4 +44,4 @@ Clone AIO from [GitHub](https://github.com/pull-vert/aio).
 ## License
 AIO is Open Source Software released under the [GNU General Public License v2.0](https://www.gnu.org/licenses/gpl-2.0.html) and is subject to the [Classpath Exception](https://www.gnu.org/software/classpath/license.html).
 
-This Classpath Exception on GPL2 allow you to include a dependency on AIO in your library, regardless of its license terms.
+This Classpath Exception of GPL2 allow you to include a dependency on AIO in your library, regardless of your library's license.

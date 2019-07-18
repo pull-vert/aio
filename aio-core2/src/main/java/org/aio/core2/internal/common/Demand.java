@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core2.common;
+package org.aio.core2.internal.common;
 
 import java.util.concurrent.atomic.AtomicLong;
 
