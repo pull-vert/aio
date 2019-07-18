@@ -327,8 +327,7 @@ public abstract class SubscriberWrapper
 
             var datasent = false;
             while (!outputQ.isEmpty() && downstreamSubscription.tryDecrement()) {
-                Bybu b = outputQ.poll();
-                Objects.requireNonNull(b); // aded by FMO
+                Bybu b = Objects.requireNonNull(outputQ.poll()); // requireNonNull aded by FMO
                 if (logger.isDebugEnabled()) logger.debug("DownstreamPusher: Pushing {} bytes downstream", b.remaining());
                 downstreamSubscriber.onNext(b);
                 datasent = true;

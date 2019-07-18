@@ -14,8 +14,10 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
- * Bybu is a ByteBuffer abstraction wrapping a {@link List}<{@link ByteBuffer}(s)>
- * Can be empty, single value or multiple
+ * Bybu is a ByteBuffer abstraction wrapping a {@link List}<{@link ByteBuffer}> <br>
+ * Can be created empty, or from single ByteBuffer or a List< ByteBuffer >
+ *
+ * @author Fred Montariol
  */
 public interface Bybu {
 
@@ -35,6 +37,12 @@ public interface Bybu {
      * or throw IllegalArgumentException("too many bytes") if (remain > max)
      */
     int remaining(int max);
+
+    /**
+     * Returns an array containing all of the elements in this list in
+     * proper sequence (from first to last element);
+     */
+    ByteBuffer[] toArray();
 
     /**
      * @return a empty Bybu implementation

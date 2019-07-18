@@ -66,7 +66,7 @@ public interface FlowTube extends
      * Once {@code dropSubscription()} is called, the {@code TubeSubscriber}
      * should stop calling any method on its subscription.
      */
-    static interface TubeSubscriber extends Flow.Subscriber<Bybu> {
+    interface TubeSubscriber extends Flow.Subscriber<Bybu> {
 
         /**
          * Called when the flow is connected again, and the subscription
@@ -83,7 +83,7 @@ public interface FlowTube extends
     /**
      * A publisher for writing to the bidirectional flow.
      */
-    static interface TubePublisher extends Flow.Publisher<Bybu> {
+    interface TubePublisher extends Flow.Publisher<Bybu> {
 
     }
 
@@ -151,7 +151,7 @@ public interface FlowTube extends
      * It is not required that a {@code TubePublisher} implementation extends
      * this class.
      */
-    static abstract class AbstractTubePublisher implements TubePublisher {
+    abstract class AbstractTubePublisher implements TubePublisher {
         static final class TubePublisherWrapper extends AbstractTubePublisher {
             final Flow.Publisher<Bybu> delegate;
             public TubePublisherWrapper(Flow.Publisher<Bybu> delegate) {
@@ -169,7 +169,7 @@ public interface FlowTube extends
      * It is not required that a {@code TubeSubscriber} implementation extends
      * this class.
      */
-    static abstract class AbstractTubeSubscriber implements TubeSubscriber {
+    abstract class AbstractTubeSubscriber implements TubeSubscriber {
         static final class TubeSubscriberWrapper extends  AbstractTubeSubscriber {
             final Flow.Subscriber<? super Bybu> delegate;
             TubeSubscriberWrapper(Flow.Subscriber<? super Bybu> delegate) {

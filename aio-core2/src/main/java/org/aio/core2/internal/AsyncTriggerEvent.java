@@ -38,6 +38,8 @@
 
 package org.aio.core2.internal;
 
+import org.aio.core2.AsyncEvent;
+
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
 import java.util.Objects;
@@ -51,14 +53,14 @@ public final class AsyncTriggerEvent extends AsyncEvent {
 
     private final Runnable trigger;
     private final Consumer<? super IOException> errorHandler;
-    AsyncTriggerEvent(Consumer<? super IOException> errorHandler, Runnable trigger) {
+    public AsyncTriggerEvent(Consumer<? super IOException> errorHandler, Runnable trigger) {
         super(0);
         this.trigger = Objects.requireNonNull(trigger);
         this.errorHandler = Objects.requireNonNull(errorHandler);
     }
     /** Returns null */
     @Override
-    public SelectableChannel channel() { return null; }
+    public SelectableChannel getChannel() { return null; }
     /** Returns 0 */
     @Override
     public int getInterestOps() { return 0; }

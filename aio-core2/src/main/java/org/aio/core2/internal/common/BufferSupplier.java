@@ -65,7 +65,7 @@ public interface BufferSupplier extends Supplier<ByteBuffer> {
      * Returns a buffer to read encrypted data off the socket.
      * @return a buffer to read encrypted data off the socket.
      */
-    public ByteBuffer get();
+    ByteBuffer get();
 
     /**
      * Returns a buffer to the pool.
@@ -75,6 +75,6 @@ public interface BufferSupplier extends Supplier<ByteBuffer> {
      *               not touch the buffer after returning it to
      *               the pool.
      */
-    public void recycle(ByteBuffer buffer);
+    void recycle(ByteBuffer buffer);
 }
 

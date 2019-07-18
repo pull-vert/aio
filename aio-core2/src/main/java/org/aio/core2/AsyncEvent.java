@@ -36,7 +36,7 @@
  * questions.
  */
 
-package org.aio.core2.internal;
+package org.aio.core2;
 
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
@@ -46,7 +46,7 @@ import java.nio.channels.SelectableChannel;
  *
  * If REPEATING is set then the event is not cancelled after being posted.
  */
-abstract class AsyncEvent {
+public abstract class AsyncEvent {
 
     public static final int REPEATING = 0x2; // one off event if not set
 
@@ -56,12 +56,12 @@ abstract class AsyncEvent {
         this(0);
     }
 
-    AsyncEvent(int flags) {
+    public AsyncEvent(int flags) {
         this.flags = flags;
     }
 
     /** Returns the channel */
-    public abstract SelectableChannel channel();
+    public abstract SelectableChannel getChannel();
 
     /** Returns the selector interest op flags OR'd */
     public abstract int getInterestOps();

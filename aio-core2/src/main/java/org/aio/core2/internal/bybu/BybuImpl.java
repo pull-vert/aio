@@ -39,6 +39,7 @@
 package org.aio.core2.internal.bybu;
 
 import org.aio.core2.bybu.Bybu;
+import org.aio.core2.internal.common.CoreUtils;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -115,5 +116,10 @@ public class BybuImpl implements Bybu {
             lock.unlock();
         }
         return (int) remain;
+    }
+
+    @Override
+    public ByteBuffer[] toArray() {
+        return bufs.toArray(CoreUtils.EMPTY_BB_ARRAY);
     }
 }
