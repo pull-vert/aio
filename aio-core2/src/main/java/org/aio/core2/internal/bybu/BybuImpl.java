@@ -42,15 +42,19 @@ import org.aio.core2.bybu.Bybu;
 import org.aio.core2.internal.common.CoreUtils;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * @author Fred Montariol
+ */
 public class BybuImpl implements Bybu {
 
     private final Lock lock = new ReentrantLock();
 
-    private final List<ByteBuffer> bufs;
+    private List<ByteBuffer> bufs;
 
     /**
      * empty = no ByteBuffer
@@ -119,7 +123,26 @@ public class BybuImpl implements Bybu {
     }
 
     @Override
+    public int size() {
+        return bufs.size();
+    }
+
+    @Override
     public ByteBuffer[] toArray() {
         return bufs.toArray(CoreUtils.EMPTY_BB_ARRAY);
+    }
+
+    @Override
+    public void add(ByteBuffer buf) {
+        var size = bufs.size();
+        // fixme : check if this fast path is still relevant
+        switch (size) {
+            case 0: bufs = List.of(buf);
+            case 1: bufs = List.of(bufs.get(0), buf);
+            case 2: bufs = List.of(bufs.get(0), bufs.get(1), buf);
+            default: // slow path if MAX_BUFFERS > 3
+                bufs = bufs instanceof ArrayList ? bufs : new ArrayList<>(bufs);
+                bufs.add(buf);
+        }
     }
 }

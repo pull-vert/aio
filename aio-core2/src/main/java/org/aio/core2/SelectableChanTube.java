@@ -53,7 +53,6 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Flow;
@@ -176,7 +175,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 new IOException("connection closed locally"));
     }
 
-    abstract protected BufferSource getBufferSource(TubeSubscriber subscriber);
+    abstract protected ByteBufferSource getBufferSource(TubeSubscriber subscriber);
 
     /**
      * A restartable task used to process tasks in sequence.
@@ -601,14 +600,14 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
             final InternalReadSubscription impl;
             final TubeSubscriber subscriber;
             final AtomicReference<Throwable> errorRef = new AtomicReference<>();
-            final BufferSource bufferSource;
+            final ByteBufferSource byteBufferSource;
             volatile boolean subscribed;
             volatile boolean cancelled;
             volatile boolean completed;
 
             ReadSubscription(InternalReadSubscription impl, TubeSubscriber subscriber) {
                 this.impl = impl;
-                this.bufferSource = getBufferSource(subscriber);
+                this.byteBufferSource = getBufferSource(subscriber);
                 this.subscriber = subscriber;
             }
 
@@ -828,7 +827,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                         if (demand.tryDecrement()) {
                             // we have demand.
                             try {
-                                List<ByteBuffer> bytes = readAvailable(current.bufferSource);
+                                List<ByteBuffer> bytes = readAvailable(current.byteBufferSource);
                                 if (bytes == EOF) {
                                     if (!completed) {
                                         if (logger.isDebugEnabled()) {
@@ -962,7 +961,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     // ===================================================================== //
 
     // This interface is used by readAvailable(BufferSource);
-    public static interface BufferSource {
+    public interface ByteBufferSource {
         /**
          * Returns a buffer to read data from the channel.
          *
@@ -978,30 +977,30 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
          *
          * @return A buffer to read data from the channel.
          */
-        public ByteBuffer getBuffer();
+        ByteBuffer getBuffer();
 
         /**
-         * Appends the read-data in {@code buffer} to the list of buffer to
+         * Appends the read-data in {@code buffer} to the Bybu to
          * be sent downstream to the subscriber. May return a new
-         * list, or append to the given list.
+         * Bybu, or append to the given one.
          *
          * @implNote
          * Different implementation can have different strategies, but
          * must obviously be consistent with the implementation of the
          * getBuffer() method. For instance, an implementation could
-         * decide to add the buffer to the list and return a new buffer
+         * decide to add the buffer to the Bybu and return a new buffer
          * next time getBuffer() is called, or could decide to add a buffer
          * slice to the list and return the same buffer (if remaining
          * space is available) next time getBuffer() is called.
          *
-         * @param list    The list before adding the data. Can be null.
-         * @param buffer  The buffer containing the data to add to the list.
+         * @param bybu    The Bybu before adding the data. Can be null.
+         * @param buffer  The buffer containing the data to add to the bybu.
          * @param start   The start position at which data were read.
          *                The current buffer position indicates the end.
-         * @return A possibly new list where a buffer containing the
+         * @return A possibly new Bybu where a buffer containing the
          *         data read from the channel has been added.
          */
-        public List<ByteBuffer> append(List<ByteBuffer> list, ByteBuffer buffer, int start);
+        Bybu append(Bybu bybu, ByteBuffer buffer, int start);
 
         /**
          * Returns the given unused {@code buffer}, previously obtained from
@@ -1012,7 +1011,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
          *
          * @param buffer The unused buffer.
          */
-        public default void returnUnused(ByteBuffer buffer) { }
+        default void returnUnused(ByteBuffer buffer) { }
     }
 
     // An implementation of BufferSource used for unencrypted data.
@@ -1020,14 +1019,14 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     // by forwarding read-only buffer slices downstream.
     // Buffers allocated through this source are simply GC'ed when
     // they are no longer referenced.
-    protected static final class SliceBufferSource implements BufferSource {
+    protected static final class SliceByteBufferSource implements ByteBufferSource {
         private final Supplier<ByteBuffer> factory;
         private volatile ByteBuffer current;
 
-        public SliceBufferSource() {
+        public SliceByteBufferSource() {
             this(CoreUtils::getBuffer);
         }
-        public SliceBufferSource(Supplier<ByteBuffer> factory) {
+        public SliceByteBufferSource(Supplier<ByteBuffer> factory) {
             this.factory = Objects.requireNonNull(factory);
         }
 
@@ -1045,7 +1044,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
         // Adds a read-only slice to the list, potentially returning a
         // new list with that slice at the end.
         @Override
-        public final List<ByteBuffer> append(List<ByteBuffer> list, ByteBuffer buf, int start) {
+        public final Bybu append(Bybu bybu, ByteBuffer buf, int start) {
             // creates a slice to add to the list
             int limit = buf.limit();
             buf.limit(buf.position());
@@ -1074,8 +1073,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     // is inserted into the returned buffer list, and if the current buffer
     // has remaining space, that space will be used to read more data when
     // the selectableChan becomes readable again.
-    private List<ByteBuffer> readAvailable(BufferSource buffersSource) throws IOException {
-        ByteBuffer buf = buffersSource.getBuffer();
+    private Bybu readAvailable(ByteBufferSource byteBufferSource) throws IOException {
+        ByteBuffer buf = byteBufferSource.getBuffer();
         assert buf.hasRemaining();
 
         int read;
@@ -1091,7 +1090,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 if (buf.position() == pos && list == null) {
                     // make sure that the buffer source will recycle
                     // 'buf' if needed
-                    buffersSource.returnUnused(buf);
+                    byteBufferSource.returnUnused(buf);
                     // no bytes have been read, just throw...
                     throw x;
                 } else {
@@ -1107,7 +1106,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 // returned if read == -1. If some data has already been read,
                 // then it must be returned. -1 will be returned next time
                 // the caller attempts to read something.
-                buffersSource.returnUnused(buf);
+                byteBufferSource.returnUnused(buf);
                 if (list == null) {
                     // nothing read - list was null - return EOF or NOTHING
                     list = read == -1 ? EOF : NOTHING;
@@ -1117,30 +1116,24 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
             // check whether this buffer has still some free space available.
             // if so, we will keep it for the next round.
-            list = buffersSource.append(list, buf, pos);
+            list = byteBufferSource.append(list, buf, pos);
 
             if (read <= 0 || list.size() == MAX_BUFFERS) {
                 break;
             }
 
-            buf = buffersSource.getBuffer();
+            buf = byteBufferSource.getBuffer();
             pos = buf.position();
             assert buf.hasRemaining();
         }
         return list;
     }
 
-    protected static <T> List<T> listOf(List<T> list, T item) {
-        int size = list == null ? 0 : list.size();
-        switch (size) {
-            case 0: return List.of(item);
-            case 1: return List.of(list.get(0), item);
-            case 2: return List.of(list.get(0), list.get(1), item);
-            default: // slow path if MAX_BUFFERS > 3
-                List<T> res = list instanceof ArrayList ? list : new ArrayList<>(list);
-                res.add(item);
-                return res;
-        }
+    private static Bybu bybuOf(Bybu bybu, ByteBuffer buf) {
+        if (bybu == null)
+            return Bybu.fromSingle(buf);
+        bybu.add(buf);
+        return bybu;
     }
 
     private long writeAvailable(Bybu bybu) throws IOException {

@@ -39,10 +39,20 @@ public interface Bybu {
     int remaining(int max);
 
     /**
-     * Returns an array containing all of the elements in this list in
+     * @return size of ByteBuffer's list
+     */
+    int size();
+
+    /**
+     * @return an array containing all of the elements in this list in
      * proper sequence (from first to last element);
      */
     ByteBuffer[] toArray();
+
+    /**
+     * Appends the specified ByteBuffer to the end of this list
+     */
+    void add(ByteBuffer buf);
 
     /**
      * @return a empty Bybu implementation
