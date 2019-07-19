@@ -451,8 +451,8 @@ public abstract class SelectableEndpoint implements EndpointAPI {
             if (!pending.isEmpty()) {
                 var evts = pending.toArray(new AsyncEvent[0]);
                 pending.clear();
-                IOException io = CoreUtils.getIOException(x);
-                for (AsyncEvent event : evts) {
+                var io = CoreUtils.getIOException(x);
+                for (var event : evts) {
                     event.abort(io);
                 }
             }
@@ -471,11 +471,9 @@ public abstract class SelectableEndpoint implements EndpointAPI {
         }
     }
 
-    // Define the default factory as a static inner class
-    // that embeds all the necessary logic to avoid
-    // the risk of using a lambda that might keep a reference on the
-    // TcpServer instance from which it was created (helps with heapdump
-    // analysis).
+    // Define the default factory as a static inner class that embeds all the necessary logic to avoid
+    // the risk of using a lambda that might keep a reference on the SelectableEndpoint instance from
+    // which it was created (helps with heapdump analysis).
     protected static final class DefaultThreadFactory implements ThreadFactory {
         private final String namePrefix;
         private final AtomicInteger nextId = new AtomicInteger();
@@ -617,9 +615,9 @@ public abstract class SelectableEndpoint implements EndpointAPI {
 
         @Override
         public void run() {
-            List<Pair<AsyncEvent, IOException>> errorList = new ArrayList<>();
-            List<AsyncEvent> readyList = new ArrayList<>();
-            List<Runnable> resetList = new ArrayList<>();
+            var errorList = new ArrayList<Pair<AsyncEvent, IOException>>();
+            var readyList = new ArrayList<AsyncEvent>();
+            var resetList = new ArrayList<Runnable>();
             try {
                 if (logger.isDebugEnabled()) logger.debug("{} : starting", getName());
                 while (!Thread.currentThread().isInterrupted()) {
@@ -737,7 +735,7 @@ public abstract class SelectableEndpoint implements EndpointAPI {
                     // takes the least of the two.
 //                    long millis = Math.min(nextExpiry, nextTimeout);
 
-                    long millis = nextTimeout;
+                    var millis = nextTimeout;
 
                     if (logger.isTraceEnabled())
                         logger.trace("Next deadline is {}", (millis == 0 ? NODEADLINE : millis));
@@ -762,7 +760,7 @@ public abstract class SelectableEndpoint implements EndpointAPI {
                     for (var key : keys) {
                         var sa = (SelectorAttachment) key.attachment();
                         if (!key.isValid()) {
-                            IOException ex = sa.channel().isOpen()
+                            var ex = sa.channel().isOpen()
                                     ? new IOException("Invalid key")
                                     : new ClosedChannelException();
                             sa.getPending().forEach(e -> errorList.add(new Pair<>(e, ex)));
@@ -774,7 +772,7 @@ public abstract class SelectableEndpoint implements EndpointAPI {
                         try {
                             eventsOccurred = key.readyOps();
                         } catch (CancelledKeyException ex) {
-                            IOException io = CoreUtils.getIOException(ex);
+                            var io = CoreUtils.getIOException(ex);
                             sa.getPending().forEach(e -> errorList.add(new Pair<>(e, io)));
                             sa.getPending().clear();
                             continue;
@@ -802,7 +800,7 @@ public abstract class SelectableEndpoint implements EndpointAPI {
             } catch (Throwable e) {
                 if (!closed) {
                     // This terminates thread. So, better just print stack trace
-                    String err = CoreUtils.stackTrace(e);
+                    var err = CoreUtils.stackTrace(e);
                     logger.error("{}: {}: {}", getName(),
                             "SelectableEndpoint shutting down due to fatal error", err);
                 }

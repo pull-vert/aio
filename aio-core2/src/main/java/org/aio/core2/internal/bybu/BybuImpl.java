@@ -145,4 +145,9 @@ public class BybuImpl implements Bybu {
                 bufs.add(buf);
         }
     }
+
+    @Override
+    public boolean listEquals(List<ByteBuffer> bufs) {
+        return this.bufs == bufs;
+    }
 }

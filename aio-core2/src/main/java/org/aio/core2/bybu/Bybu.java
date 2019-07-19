@@ -55,6 +55,12 @@ public interface Bybu {
     void add(ByteBuffer buf);
 
     /**
+     * @param bufs compared list
+     * @return true if wrapped List == bufs
+     */
+    boolean listEquals(List<ByteBuffer> bufs);
+
+    /**
      * @return a empty Bybu implementation
      */
     static Bybu empty() {
