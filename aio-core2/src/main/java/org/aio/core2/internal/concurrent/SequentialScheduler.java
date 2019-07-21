@@ -172,12 +172,12 @@ public final class SequentialScheduler {
      * memory visibility between runs. Since the main loop can't run concurrently,
      * the lock shouldn't be contended and no deadlock should ever be possible.
      */
-    public static final class SynchronizedRestartableTask extends CompleteRestartableTask {
+    public static final class LockedRestartableTask extends CompleteRestartableTask {
 
         private final Runnable mainLoop;
         private final Lock lock = new ReentrantLock();
 
-        public SynchronizedRestartableTask(Runnable mainLoop) {
+        public LockedRestartableTask(Runnable mainLoop) {
             this.mainLoop = mainLoop;
         }
 
@@ -361,17 +361,17 @@ public final class SequentialScheduler {
 
     /**
      * Returns a new {@code SequentialScheduler} that executes the provided
-     * {@code mainLoop} from within a {@link SynchronizedRestartableTask}.
+     * {@code mainLoop} from within a {@link LockedRestartableTask}.
      *
      * @apiNote This is equivalent to calling
-     * {@code new SequentialScheduler(new SynchronizedRestartableTask(mainLoop))}
+     * {@code new SequentialScheduler(new LockedRestartableTask(mainLoop))}
      * The main loop must not perform any blocking operation.
      *
      * @param mainLoop The main loop of the new sequential scheduler
      * @return a new {@code SequentialScheduler} that executes the provided
-     * {@code mainLoop} from within a {@link SynchronizedRestartableTask}.
+     * {@code mainLoop} from within a {@link LockedRestartableTask}.
      */
-    public static SequentialScheduler synchronizedScheduler(Runnable mainLoop) {
-        return new SequentialScheduler(new SynchronizedRestartableTask(mainLoop));
+    public static SequentialScheduler lockedScheduler(Runnable mainLoop) {
+        return new SequentialScheduler(new LockedRestartableTask(mainLoop));
     }
 }

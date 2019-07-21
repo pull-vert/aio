@@ -42,10 +42,11 @@ import org.aio.core2.bybu.Bybu;
 import org.aio.core2.internal.common.CoreUtils;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * @author Fred Montariol
@@ -134,20 +135,63 @@ public class BybuImpl implements Bybu {
 
     @Override
     public void add(ByteBuffer buf) {
-        var size = bufs.size();
-        // fixme : check if this fast path is still relevant
-        switch (size) {
-            case 0: bufs = List.of(buf);
-            case 1: bufs = List.of(bufs.get(0), buf);
-            case 2: bufs = List.of(bufs.get(0), bufs.get(1), buf);
-            default: // slow path if MAX_BUFFERS > 3
-                bufs = bufs instanceof ArrayList ? bufs : new ArrayList<>(bufs);
-                bufs.add(buf);
-        }
+        bufs.add(buf);
     }
 
     @Override
     public boolean listEquals(List<ByteBuffer> bufs) {
         return this.bufs == bufs;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return bufs.isEmpty();
+    }
+
+    public List<ByteBuffer> getList() {
+        return bufs;
+    }
+
+    @Override
+    public void addAll(Bybu bybu) {
+        bufs.addAll(((BybuImpl) bybu).getList());
+    }
+
+    public void lockedConsume(Consumer<List<ByteBuffer>> bufsConsumer) {
+        lockedConsume(lock, bufsConsumer);
+    }
+
+    public void lockedConsume(Lock lock, Consumer<List<ByteBuffer>> bufsConsumer) {
+        lock.lock();
+        try {
+            bufsConsumer.accept(bufs);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+//    @Override
+//    public <R> R lockedFunction(Function<List<ByteBuffer>, R> bufsFunction) {
+//        lock.lock();
+//        try {
+//            return bufsFunction.apply(bufs);
+//        } finally {
+//            lock.unlock();
+//        }
+//    }
+
+    @Override
+    public boolean lockedPredicate(Predicate<List<ByteBuffer>> bufsPredicate) {
+        lock.lock();
+        try {
+            return bufsPredicate.test(bufs);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void clear() {
+        bufs.clear();
     }
 }

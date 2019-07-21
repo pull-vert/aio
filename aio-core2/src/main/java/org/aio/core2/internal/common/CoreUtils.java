@@ -38,6 +38,7 @@
 
 package org.aio.core2.internal.common;
 
+import org.aio.core2.bybu.Bybu;
 import org.slf4j.Logger;
 
 import java.io.*;
@@ -228,6 +229,7 @@ public final class CoreUtils {
     // Put all these static 'empty' singletons here
     public static final ByteBuffer EMPTY_BYTEBUFFER = ByteBuffer.allocate(0);
     public static final ByteBuffer[] EMPTY_BB_ARRAY = new ByteBuffer[0];
+    public static final Bybu EMPTY_BYBU = Bybu.empty();
 
     /**
      * Returns a slice of size {@code amount} from the given buffer. If the

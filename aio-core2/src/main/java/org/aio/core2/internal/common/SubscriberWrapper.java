@@ -115,7 +115,7 @@ public abstract class SubscriberWrapper
             if (t != null)
                 errorCommon(t);
         });
-        this.pushScheduler = SequentialScheduler.synchronizedScheduler(new DownstreamPusher());
+        this.pushScheduler = SequentialScheduler.lockedScheduler(new DownstreamPusher());
         this.downstreamSubscription = new SubscriptionBase(pushScheduler,
                 this::downstreamCompletion);
     }

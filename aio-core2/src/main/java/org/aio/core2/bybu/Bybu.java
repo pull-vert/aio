@@ -12,40 +12,45 @@ import org.aio.core2.internal.bybu.BybuImpl;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Bybu is a ByteBuffer abstraction wrapping a {@link List}<{@link ByteBuffer}> <br>
- * Can be created empty, or from single ByteBuffer or a List< ByteBuffer >
+ * Can be created empty, from single ByteBuffer or a List< ByteBuffer > <br>
+ * It provides some thread-safe methods
  *
  * @author Fred Montariol
  */
 public interface Bybu {
 
     /**
-     * @return {@code true} if, and only if, there is at least one element remaining in this buffer
+     * @return {@code true} if, and only if, there is at least one element remaining in wrapped list
      */
     boolean hasRemaining();
 
     /**
-     * @return The number of elements remaining in this buffer
+     * @return The number of elements remaining in wrapped list
      */
     long remaining();
 
     /**
      * @param max accepted limit of elements
-     * @return The number of elements remaining in this buffer,
+     * @return The number of elements remaining in wrapped list,
      * or throw IllegalArgumentException("too many bytes") if (remain > max)
      */
     int remaining(int max);
 
     /**
-     * @return size of ByteBuffer's list
+     * @return size of wrapped list
      */
     int size();
 
     /**
      * @return an array containing all of the elements in this list in
-     * proper sequence (from first to last element);
+     * proper sequence (from first to last element); <br>
+     * WARNING : not thread-safe !
      */
     ByteBuffer[] toArray();
 
@@ -56,9 +61,56 @@ public interface Bybu {
 
     /**
      * @param bufs compared list
-     * @return true if wrapped List == bufs
+     * @return {@code true} if wrapped list == bufs
      */
     boolean listEquals(List<ByteBuffer> bufs);
+
+    /**
+     * @return {@code true} if wrapped list contains no elements
+     */
+    boolean isEmpty();
+
+    /**
+     * Appends all of the elements in the specified bybu to the end of wrapped list
+     *
+     * @param bybu containing elements to be added to wrapped list
+     */
+    void addAll(Bybu bybu);
+
+    /**
+     * Consume wrapped list in a lock-safe block, using implementation's lock
+     *
+     * @param bufsConsumer wrapped list consumer
+     */
+    void lockedConsume(Consumer<List<ByteBuffer>> bufsConsumer);
+
+    /**
+     * Consume wrapped list in a lock-safe block, using provided lock
+     *
+     * @param lock non-null lock
+     * @param bufsConsumer wrapped list consumer
+     */
+    void lockedConsume(Lock lock, Consumer<List<ByteBuffer>> bufsConsumer);
+
+//    /**
+//     * Call function on wrapped list in a lock-safe block
+//     *
+//     * @param bufsFunction wrapped list function
+//     */
+//    <R> R lockedFunction(Function<List<ByteBuffer>, R> bufsFunction);
+
+    /**
+     * Call predicate on wrapped list in a lock-safe block
+     *
+     * @param bufsPredicate predicate on wrapped list
+     */
+    boolean lockedPredicate(Predicate<List<ByteBuffer>> bufsPredicate);
+
+    /**
+     * Removes all of the elements from wrapped list (optional operation).
+     * The list will be empty after this call returns.
+     */
+    void clear();
 
     /**
      * @return a empty Bybu implementation

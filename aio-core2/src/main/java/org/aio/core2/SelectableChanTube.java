@@ -41,6 +41,7 @@ package org.aio.core2;
 import org.aio.core2.bybu.Bybu;
 import org.aio.core2.internal.AsyncTriggerEvent;
 import org.aio.core2.internal.FlowTube;
+import org.aio.core2.internal.bybu.BybuImpl;
 import org.aio.core2.internal.common.CoreUtils;
 import org.aio.core2.internal.common.Demand;
 import org.aio.core2.internal.concurrent.SequentialScheduler;
@@ -53,6 +54,7 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Flow;
@@ -1119,12 +1121,18 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
         return bybu;
     }
 
-    private static Bybu bybuOf(Bybu bybu, ByteBuffer buf) {
-        if (bybu == null) {
-            return Bybu.fromSingle(buf);
+    protected static Bybu bybuOf(Bybu bybu, ByteBuffer item) {
+        var list = ((BybuImpl) bybu).getList();
+        int size = list == null ? 0 : list.size();
+        switch (size) {
+            case 0: return Bybu.fromSingle(item);
+            case 1: return Bybu.fromList(List.of(list.get(0), item));
+            case 2: return Bybu.fromList(List.of(list.get(0), list.get(1), item));
+            default: // slow path if MAX_BUFFERS > 3
+                var res = list instanceof ArrayList ? list : new ArrayList<>(list);
+                res.add(item);
+                return Bybu.fromList(res);
         }
-        bybu.add(buf);
-        return bybu;
     }
 
     private long writeAvailable(Bybu bybu) throws IOException {
