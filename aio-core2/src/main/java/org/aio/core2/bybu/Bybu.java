@@ -48,9 +48,10 @@ public interface Bybu {
     int size();
 
     /**
-     * @return an array containing all of the elements in this list in
-     * proper sequence (from first to last element); <br>
      * WARNING : not thread-safe !
+     *
+     * @return an array containing all of the elements in this list in
+     * proper sequence (from first to last element);
      */
     ByteBuffer[] toArray();
 
@@ -71,7 +72,8 @@ public interface Bybu {
     boolean isEmpty();
 
     /**
-     * Appends all of the elements in the specified bybu to the end of wrapped list
+     * Appends all of the elements in the specified bybu to the end of wrapped list <br>
+     * WARNING : not thread-safe !
      *
      * @param bybu containing elements to be added to wrapped list
      */

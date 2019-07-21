@@ -886,7 +886,7 @@ public class SSLFlowDelegate {
         @Override
         public String toString() {
             return "WRITER: " + super.toString()
-                + ", writeList size: " + Integer.toString(writeBybu.size())
+                + ", writeList size: " + writeBybu.size()
                 + ", scheduler: " + (scheduler.isStopped() ? "stopped" : "running")
                 + ", status: " + lastWrappedStatus;
             //" writeList: " + writeList.toString();
