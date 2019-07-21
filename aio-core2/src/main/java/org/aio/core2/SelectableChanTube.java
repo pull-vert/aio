@@ -68,8 +68,8 @@ import java.util.function.Supplier;
 /**
  * SelectableChanTube is a FlowTube implementation. It is a terminal tube plugged directly into the Selectable Channel
  * <br>
- * The read subscriber should call {@code subscribe} on the SelectableChanTube before
- * the SelectableChanTube is subscribed to the write publisher.
+ * The read subscriber should call {@code subscribe} on the SelectableChanTube before the SelectableChanTube is subscribed
+ * to the write publisher.
  */
 public abstract class SelectableChanTube<T extends SelectableChannel & ReadableByteChannel & GatheringByteChannel>
         implements FlowTube {
@@ -99,10 +99,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
     /**
      * Returns {@code true} if this flow is finished.
-     * This happens when this flow internal read subscription is completed,
-     * either normally (EOF reading) or exceptionally  (EOF writing, or
-     * underlying getChan closed, or some exception occurred while reading or
-     * writing to the getChan).
+     * This happens when this flow internal read subscription is completed, either normally (EOF reading) or exceptionally (EOF
+     * writing, or underlying getChan closed, or some exception occurred while reading or writing to the getChan).
      *
      * @return {@code true} if this flow is finished.
      */
@@ -118,10 +116,9 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
     /**
      * {@inheritDoc }
-     * @apiNote This method should be called first. In particular, the caller
-     *          must ensure that this method must be called by the read
-     *          subscriber before the write publisher can call {@code onSubscribe}.
-     *          Failure to adhere to this contract may result in assertion errors.
+     * @apiNote This method should be called first. In particular, the caller must ensure that this method must be called by the read
+     *          subscriber before the write publisher can call {@code onSubscribe}. Failure to adhere to this contract may result in
+     *          assertion errors.
      */
     @Override
     public void subscribe(Flow.Subscriber<? super Bybu> s) {
@@ -138,10 +135,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
     /**
      * {@inheritDoc }
-     * @apiNote The caller must ensure that {@code subscribe} is called by
-     *          the read subscriber before {@code onSubscribe} is called by
-     *          the write publisher.
-     *          Failure to adhere to this contract may result in assertion errors.
+     * @apiNote The caller must ensure that {@code subscribe} is called by the read subscriber before {@code onSubscribe} is called by
+     *          the write publisher. Failure to adhere to this contract may result in assertion errors.
      */
     @Override
     public void onSubscribe(Flow.Subscription subscription) {
@@ -168,8 +163,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     // ======================================================================//
 
     public void signalClosed() {
-        // Ensures that the subscriber will be terminated and that future
-        // subscribers will be notified when the connection is closed.
+        // Ensures that the subscriber will be terminated and that future subscribers will be notified when the connection is closed.
         if (logger.isDebugEnabled())
             logger.debug("Connection close signalled: connection closed locally ({})", channelDescr());
         readPublisher.subscriptionImpl.signalError(new IOException("connection closed locally"));
@@ -199,10 +193,9 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
         }
     }
 
-    // This is best effort - there's no guarantee that the printed set of values
-    // is consistent. It should only be considered as weakly accurate - in
-    // particular in what concerns the events states, especially when displaying
-    // a read event state from a write event callback and conversely.
+    // This is best effort - there's no guarantee that the printed set of values is consistent. It should only be considered
+    // as weakly accurate - in particular in what concerns the events states, especially when displaying a read event state
+    // from a write event callback and conversely.
     private void debugState(String when) {
         if (logger.isDebugEnabled()) {
             var state = new StringBuilder();
@@ -229,10 +222,9 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     }
 
     /**
-     * A repeatable event that can be paused or resumed by changing its
-     * getInterestOps. When the event is fired, it is first paused before being
-     * signaled. It is the responsibility of the code triggered by
-     * {@code signalEvent} to resume the event if required.
+     * A repeatable event that can be paused or resumed by changing its getInterestOps. When the event is fired,
+     * it is first paused before being signaled. It is the responsibility of the code triggered by {@code signalEvent}
+     * to resume the event if required.
      */
     private static abstract class SelectableChannelFlowEvent extends AsyncEvent {
 
@@ -278,12 +270,10 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     //                              Writing                                  //
     // ======================================================================//
 
-    // This class makes the assumption that the publisher will call onNext
-    // sequentially, and that onNext won't be called if the demand has not been
-    // incremented by request(1).
-    // It has a 'queue of 1' meaning that it will call request(1) in
-    // onSubscribe, and then only after its 'current' buffer list has been
-    // fully written and current set to null;
+    // This class makes the assumption that the publisher will call onNext sequentially, and that onNext won't be called if
+    // the demand has not been incremented by request(1).
+    // It has a 'queue of 1' meaning that it will call request(1) in onSubscribe, and then only after its 'current' buffer
+    // list has been fully written and current set to null;
     private final class InternalWriteSubscriber implements Flow.Subscriber<Bybu> {
 
         volatile WriteSubscription subscription;
@@ -324,36 +314,30 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                     + "w.onNext: subscription is null";
             current = bybu;
             tryFlushCurrent(endpoint.isSelectorThread()); // may be in selector thread
-            // For instance in HTTP/2, a received SETTINGS frame might trigger
-            // the sending of a SETTINGS frame in turn which might cause
-            // onNext to be called from within the same selector thread that the
-            // original SETTINGS frames arrived on. If rs is the read-subscriber
-            // and ws is the write-subscriber then the following can occur:
+            // For instance in HTTP/2, a received SETTINGS frame might trigger the sending of a SETTINGS frame
+            // in turn which might cause onNext to be called from within the same selector thread that the original
+            // SETTINGS frames arrived on. If rs is the read-subscriber and ws is the write-subscriber then the
+            // following can occur:
             // ReadEvent -> rs.onNext(bytes) -> process server SETTINGS -> write
             // endpoint SETTINGS -> ws.onNext(bytes) -> tryFlushCurrent
             debugState("leaving w.onNext");
         }
 
-        // Don't use a SequentialScheduler here: rely on onNext() being invoked
-        // sequentially, and not being invoked if there is no demand, request(1).
-        // onNext is usually called from within a user / executor thread.
-        // Initial writing will be performed in that thread. If for some reason,
-        // not all the data can be written, a writeEvent will be registered, and
-        // writing will resume in the the selector manager thread when the
-        // writeEvent is fired.
+        // Don't use a SequentialScheduler here: rely on onNext() being invoked sequentially, and not being
+        // invoked if there is no demand, request(1).
+        // onNext is usually called from within a user / executor thread. Initial writing will be performed in that
+        // thread. If for some reason, not all the data can be written, a writeEvent will be registered, and
+        // writing will resume in the the selector manager thread when the writeEvent is fired.
         //
-        // If this method is invoked in the selector manager thread (because of
-        // a writeEvent), then the executor will be used to invoke request(1),
-        // ensuring that onNext() won't be invoked from within the selector
-        // thread. If not in the selector manager thread, then request(1) is
-        // invoked directly.
+        // If this method is invoked in the selector manager thread (because of a writeEvent), then the executor
+        // will be used to invoke request(1), ensuring that onNext() won't be invoked from within the selector
+        // thread. If not in the selector manager thread, then request(1) is invoked directly.
         void tryFlushCurrent(boolean inSelectorThread) {
             var bybu = current;
             if (bybu == null) return;
             try {
                 assert inSelectorThread == endpoint.isSelectorThread() :
-                       "should " + (inSelectorThread ? "" : "not ")
-                        + " be in the selector thread";
+                       "should " + (inSelectorThread ? "" : "not ") + " be in the selector thread";
                 var remaining = bybu.remaining();
                 if (logger.isDebugEnabled()) logger.debug("trying to write: {}", remaining);
                 var written = writeAvailable(bybu);
@@ -414,8 +398,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
         @Override
         public void onComplete() {
             completed = true;
-            // no need to pause the write event here: the write event will
-            // be paused if there is nothing more to write.
+            // no need to pause the write event here: the write event will be paused if there is nothing more to write.
             var bybu = current;
             var remaining = bybu == null ? 0 : bybu.remaining();
             if (logger.isDebugEnabled()) logger.debug( "write completed, {} yet to send", remaining);
@@ -443,8 +426,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
             if (subscription != null) subscription.cancel();
         }
 
-        // A repeatable WriteEvent which is paused after firing and can
-        // be resumed if required - see SelectableChannelFlowEvent;
+        // A repeatable WriteEvent which is paused after firing and can be resumed if required
+        // - see SelectableChannelFlowEvent;
         final class WriteEvent extends SelectableChannelFlowEvent {
             final SelectableChanTube.InternalWriteSubscriber sub;
             WriteEvent(T selectableChannel, SelectableChanTube.InternalWriteSubscriber sub) {
@@ -483,9 +466,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
             @Override
             public void cancel() {
                 if (cancelled) return;
-                if (logger.isDebugEnabled()) {
-                    logger.debug("write: cancel - Cancelling write subscription");
-                }
+                if (logger.isDebugEnabled()) logger.debug("write: cancel - Cancelling write subscription");
                 dropSubscription();
                 upstreamSubscription.cancel();
             }
@@ -536,22 +517,16 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     //                              Reading                                  //
     // ===================================================================== //
 
-    // The InternalReadPublisher uses a SequentialScheduler to ensure that
-    // onNext/onError/onComplete are called sequentially on the caller's
-    // subscriber.
-    // However, it relies on the fact that the only time where
-    // runOrSchedule() is called from a user/executor thread is in signalError,
-    // right after the errorRef has been set.
-    // Because the sequential scheduler's task always checks for errors first,
-    // and always terminate the scheduler on error, then it is safe to assume
-    // that if it reaches the point where it reads from the selectableChan, then
-    // it is running in the SelectorManager thread. This is because all
-    // other invocation of runOrSchedule() are triggered from within a
-    // ReadEvent.
+    // The InternalReadPublisher uses a SequentialScheduler to ensure that onNext/onError/onComplete are called sequentially
+    // on the caller's subscriber.
+    // However, it relies on the fact that the only time where runOrSchedule() is called from a user/executor thread is in
+    // signalError, right after the errorRef has been set.
+    // Because the sequential scheduler's task always checks for errors first, and always terminate the scheduler on error,
+    // then it is safe to assume that if it reaches the point where it reads from the selectableChan, then it is running in
+    // the SelectorManager thread. This is because all other invocation of runOrSchedule() are triggered from within a ReadEvent.
     //
-    // When pausing/resuming the event, some shortcuts can then be taken
-    // when we know we're running in the selector manager thread
-    // (in that case there's no need to call endpoint.eventUpdated(readEvent);
+    // When pausing/resuming the event, some shortcuts can then be taken when we know we're running in the selector manager
+    // thread (in that case there's no need to call endpoint.eventUpdated(readEvent);
     //
     private final class InternalReadPublisher
             implements Flow.Publisher<Bybu> {
@@ -569,8 +544,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
             if (previous != null && previous != target) {
                 if (logger.isDebugEnabled())
-                    logger.debug("read publisher: dropping pending subscriber: {}",
-                              previous.subscriber);
+                    logger.debug("read publisher: dropping pending subscriber: {}", previous.subscriber);
                 previous.errorRef.compareAndSet(null, errorRef.get());
                 previous.signalOnSubscribe();
                 if (subscriptionImpl.completed) {
@@ -591,8 +565,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 return;
             }
             if (logger.isDebugEnabled()) {
-                logger.debug("Error signalled on selectableChan {}: {}",
-                        channelDescr(), error);
+                logger.debug("Error signalled on selectableChan {}: {}", channelDescr(), error);
             }
             subscriptionImpl.handleError();
         }
@@ -677,8 +650,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
             InternalReadSubscription() {
                 readScheduler = new SequentialScheduler(new SelectableChannelFlowTask(this::read));
-                subscribeEvent = new AsyncTriggerEvent(this::signalError,
-                                                       this::handleSubscribeEvent);
+                subscribeEvent = new AsyncTriggerEvent(this::signalError, this::handleSubscribeEvent);
                 readEvent = new ReadEvent(selectableChan, this);
             }
 
@@ -689,8 +661,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 if (readScheduler.isStopped() || completed) {
                     // if already completed or stopped we can handle any
                     // pending connection directly from here.
-                    if (logger.isDebugEnabled())
-                        logger.debug("handling pending subscription while completed");
+                    if (logger.isDebugEnabled()) logger.debug("handling pending subscription while completed");
                     handlePending();
                 } else {
                     try {
@@ -711,8 +682,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 }
                 readScheduler.runOrSchedule();
                 if (readScheduler.isStopped() || completed) {
-                    // if already completed or stopped we can handle any
-                    // pending connection directly from here.
+                    // if already completed or stopped we can handle any pending connection directly from here.
                     if (logger.isDebugEnabled())
                         logger.debug("handling pending subscription when completed");
                     handlePending();
@@ -721,9 +691,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
 
             /*
-             * Although this method is thread-safe, the Reactive-Streams spec seems
-             * to not require it to be as such. It's a responsibility of the
-             * subscriber to signal demand in a thread-safe manner.
+             * Although this method is thread-safe, the Reactive-Streams spec seems to not require it to be as such.
+             * It's a responsibility of the subscriber to signal demand in a thread-safe manner.
              *
              * See Reactive Streams specification, rules 2.7 and 3.4.
              */
@@ -774,8 +743,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                     return;
                 }
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Read error signalled on selectableChan {}: {}",
-                            channelDescr(), error);
+                    logger.debug("Read error signalled on selectableChan {}: {}", channelDescr(), error);
                 }
                 readScheduler.runOrSchedule();
             }
@@ -786,12 +754,9 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
             /** The body of the task that runs in SequentialScheduler. */
             final void read() {
-                // It is important to only call pauseReadEvent() when stopping
-                // the scheduler. The event is automatically paused before
-                // firing, and trying to pause it again could cause a race
-                // condition between this loop, which calls tryDecrementDemand(),
-                // and the thread that calls request(n), which will try to resume
-                // reading.
+                // It is important to only call pauseReadEvent() when stopping the scheduler. The event is automatically
+                // paused before firing, and trying to pause it again could cause a race condition between this loop,
+                // which calls tryDecrementDemand(), and the thread that calls request(n), which will try to resume reading.
                 try {
                     while(!readScheduler.isStopped()) {
                         if (completed) return;
@@ -925,8 +890,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
         }
 
 
-        // A repeatable ReadEvent which is paused after firing and can
-        // be resumed if required - see SelectableChannelFlowEvent;
+        // A repeatable ReadEvent which is paused after firing and can be resumed if required
+        // - see SelectableChannelFlowEvent;
         final class ReadEvent extends SelectableChannelFlowEvent {
             final InternalReadSubscription sub;
             ReadEvent(T chan, InternalReadSubscription sub) {
@@ -960,48 +925,39 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
          * Returns a buffer to read data from the channel.
          *
          * @implNote
-         * Different implementation can have different strategies, as to
-         * which kind of buffer to return, or whether to return the same
-         * buffer. The only constraints are that:
+         * Different implementation can have different strategies, as to which kind of buffer to return, or whether to
+         * return the same buffer. The only constraints are that:
          *   a. the buffer returned must not be null
          *   b. the buffer position indicates where to start reading
          *   c. the buffer limit indicates where to stop reading.
-         *   d. the buffer is 'free' - that is - it is not used
-         *      or retained by anybody else
+         *   d. the buffer is 'free' - that is - it is not used or retained by anybody else
          *
          * @return A buffer to read data from the channel.
          */
         ByteBuffer getBuffer();
 
         /**
-         * Appends the read-data in {@code buffer} to the Bybu to
-         * be sent downstream to the subscriber. May return a new
+         * Appends the read-data in {@code buffer} to the Bybu to be sent downstream to the subscriber. May return a new
          * Bybu, or append to the given one.
          *
          * @implNote
-         * Different implementation can have different strategies, but
-         * must obviously be consistent with the implementation of the
-         * getBuffer() method. For instance, an implementation could
-         * decide to add the buffer to the Bybu and return a new buffer
-         * next time getBuffer() is called, or could decide to add a buffer
-         * slice to the list and return the same buffer (if remaining
-         * space is available) next time getBuffer() is called.
+         * Different implementation can have different strategies, but must obviously be consistent with the implementation
+         * of the getBuffer() method. For instance, an implementation could decide to add the buffer to the Bybu and return
+         * a new buffer next time getBuffer() is called, or could decide to add a buffer slice to the list and return the
+         * same buffer (if remaining space is available) next time getBuffer() is called.
          *
          * @param bybu    The Bybu before adding the data. Can be null.
          * @param buffer  The buffer containing the data to add to the bybu.
          * @param start   The start position at which data were read.
          *                The current buffer position indicates the end.
-         * @return A possibly new Bybu where a buffer containing the
-         *         data read from the channel has been added.
+         * @return A possibly new Bybu where a buffer containing the data read from the channel has been added.
          */
         Bybu append(Bybu bybu, ByteBuffer buffer, int start);
 
         /**
-         * Returns the given unused {@code buffer}, previously obtained from
-         * {@code getBuffer}.
+         * Returns the given unused {@code buffer}, previously obtained from {@code getBuffer}.
          *
-         * @implNote This method can be used, if necessary, to return
-         *  the unused buffer to the pull.
+         * @implNote This method can be used, if necessary, to return the unused buffer to the pull.
          *
          * @param buffer The unused buffer.
          */
@@ -1009,10 +965,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     }
 
     // An implementation of BufferSource used for unencrypted data.
-    // This buffer source uses heap buffers and avoids wasting memory
-    // by forwarding read-only buffer slices downstream.
-    // Buffers allocated through this source are simply GC'ed when
-    // they are no longer referenced.
+    // This buffer source uses heap buffers and avoids wasting memory by forwarding read-only buffer slices downstream.
+    // Buffers allocated through this source are simply GC'ed when they are no longer referenced.
     protected static final class SliceByteBufferSource implements ByteBufferSource {
         private final Supplier<ByteBuffer> factory;
         private volatile ByteBuffer current;
@@ -1024,8 +978,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
             this.factory = Objects.requireNonNull(factory);
         }
 
-        // Reuses the same buffer if some space remains available.
-        // Otherwise, returns a new heap buffer.
+        // Reuses the same buffer if some space remains available. Otherwise, returns a new heap buffer.
         @Override
         public final ByteBuffer getBuffer() {
             var buf = current;
@@ -1034,8 +987,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
             return buf;
         }
 
-        // Adds a read-only slice to the list, potentially returning a
-        // new list with that slice at the end.
+        // Adds a read-only slice to the list, potentially returning a new list with that slice at the end.
         @Override
         public final Bybu append(Bybu bybu, ByteBuffer buf, int start) {
             // creates a slice to add to the list
@@ -1060,12 +1012,9 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
     private static final List<ByteBuffer> EOF = List.of();
     private static final List<ByteBuffer> NOTHING = List.of(CoreUtils.EMPTY_BYTEBUFFER);
 
-    // readAvailable() will read bytes into the 'current' ByteBuffer until
-    // the ByteBuffer is full, or 0 or -1 (EOF) is returned by read().
-    // When that happens, a slice of the data that has been read so far
-    // is inserted into the returned buffer list, and if the current buffer
-    // has remaining space, that space will be used to read more data when
-    // the selectableChan becomes readable again.
+    // readAvailable() will read bytes into the 'current' ByteBuffer until the ByteBuffer is full, or 0 or -1 (EOF) is returned by read().
+    // When that happens, a slice of the data that has been read so far is inserted into the returned buffer list, and if the current
+    // buffer has remaining space, that space will be used to read more data when the selectableChan becomes readable again.
     private Bybu readAvailable(ByteBufferSource byteBufferSource) throws IOException {
         var buf = byteBufferSource.getBuffer();
         assert buf.hasRemaining();
@@ -1081,8 +1030,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 }
             } catch (IOException x) {
                 if (buf.position() == pos && bybu == null) {
-                    // make sure that the buffer source will recycle
-                    // 'buf' if needed
+                    // make sure that the buffer source will recycle 'buf' if needed
                     byteBufferSource.returnUnused(buf);
                     // no bytes have been read, just throw...
                     throw x;
@@ -1095,9 +1043,8 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
 
             // nothing read;
             if (buf.position() == pos) {
-                // An empty list signals the end of data, and should only be returned if read == -1. If some data has
-                // already been read, then it must be returned. -1 will be returned next time the caller attempts to
-                // read something.
+                // An empty list signals the end of data, and should only be returned if read == -1. If some data has already been read,
+                // then it must be returned. -1 will be returned next time the caller attempts to read something.
                 byteBufferSource.returnUnused(buf);
                 if (bybu == null) {
                     // nothing read - list was null - return EOF or NOTHING
@@ -1106,8 +1053,7 @@ public abstract class SelectableChanTube<T extends SelectableChannel & ReadableB
                 break;
             }
 
-            // check whether this buffer has still some free space available.
-            // if so, we will keep it for the next round.
+            // check whether this buffer has still some free space available. if so, we will keep it for the next round.
             bybu = byteBufferSource.append(bybu, buf, pos);
 
             if (read <= 0 || bybu.size() == MAX_BUFFERS) {
