@@ -49,10 +49,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLHandshakeException;
-import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import org.aio.core2.internal.common.SubscriberWrapper.SchedulingAction;
 
@@ -189,6 +190,7 @@ public class SSLTube implements FlowTube {
         volatile boolean subscribedDone;
         volatile boolean completed;
         volatile Throwable error;
+        private final Lock lock = new ReentrantLock();
         DelegateWrapper(Flow.Subscriber<? super Bybu> delegate, Logger logger) {
             this.delegate = FlowTube.asTubeSubscriber(delegate);
             this.logger = logger;
@@ -212,20 +214,21 @@ public class SSLTube implements FlowTube {
             onSubscribe(delegate::onSubscribe, subscription);
         }
 
-        private void onSubscribe(Consumer<Flow.Subscription> method,
-                                 Flow.Subscription subscription) {
+        private void onSubscribe(Consumer<Flow.Subscription> method, Flow.Subscription subscription) {
             subscribedCalled = true;
             method.accept(subscription);
             Throwable x;
             boolean finished;
-            synchronized (this) {
+            lock.lock();
+            try {
                 subscribedDone = true;
                 x = error;
                 finished = completed;
+            } finally {
+                lock.unlock();
             }
             if (x != null) {
-                if (logger.isDebugEnabled())
-                    logger.debug("Subscriber completed before subscribe: forwarding {}", (Object)x);
+                if (logger.isDebugEnabled()) logger.debug("Subscriber completed before subscribe: forwarding {}", (Object)x);
                 delegate.onError(x);
             } else if (finished) {
                 if (logger.isDebugEnabled()) logger.debug("Subscriber completed before subscribe: calling onComplete()");
@@ -240,11 +243,14 @@ public class SSLTube implements FlowTube {
                 return;
             }
             boolean subscribed;
-            synchronized (this) {
+            lock.lock();
+            try {
                 if (completed) return;
                 error = t;
                 completed = true;
                 subscribed = subscribedDone;
+            } finally {
+                lock.unlock();
             }
             if (subscribed) {
                 delegate.onError(t);
@@ -257,10 +263,13 @@ public class SSLTube implements FlowTube {
         public void onComplete() {
             if (completed) return;
             boolean subscribed;
-            synchronized (this) {
+            lock.lock();
+            try {
                 if (completed) return;
                 completed = true;
                 subscribed = subscribedDone;
+            } finally {
+                lock.unlock();
             }
             if (subscribed) {
                 if (logger.isDebugEnabled()) logger.debug("DelegateWrapper: completing subscriber");
@@ -283,6 +292,7 @@ public class SSLTube implements FlowTube {
         private volatile SSLTube.DelegateWrapper subscribed;
         private volatile boolean onCompleteReceived;
         private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        private final Lock lock = new ReentrantLock();
 
         // setDelegate can be called asynchronously when the SSLTube flow is connected. At this time the permanent subscriber
         // (this class) may already be subscribed (readSubscription != null) or not.
@@ -293,14 +303,17 @@ public class SSLTube implements FlowTube {
         void setDelegate(Flow.Subscriber<? super Bybu> delegate) {
             if (logger.isDebugEnabled()) logger.debug("SSLSubscriberWrapper (reader) got delegate: {}", delegate);
             assert delegate != null;
-            SSLTube.DelegateWrapper delegateWrapper = new SSLTube.DelegateWrapper(delegate, logger);
+            var delegateWrapper = new SSLTube.DelegateWrapper(delegate, logger);
             SSLTube.DelegateWrapper previous;
             Flow.Subscription subscription;
             boolean handleNow;
-            synchronized (this) {
+            lock.lock();
+            try {
                 previous = pendingDelegate.getAndSet(delegateWrapper);
                 subscription = readSubscription;
                 handleNow = this.errorRef.get() != null || onCompleteReceived;
+            } finally {
+                lock.unlock();
             }
             if (previous != null) {
                 previous.dropSubscription();
@@ -322,11 +335,14 @@ public class SSLTube implements FlowTube {
         void processPendingSubscriber() {
             Flow.Subscription subscription;
             SSLTube.DelegateWrapper delegateWrapper, previous;
-            synchronized (this) {
+            lock.lock();
+            try {
                 delegateWrapper = pendingDelegate.get();
                 if (delegateWrapper == null) return;
                 subscription = readSubscription;
                 previous = subscribed;
+            } finally {
+                lock.unlock();
             }
             if (subscription == null) {
                 if (logger.isDebugEnabled())
@@ -343,7 +359,7 @@ public class SSLTube implements FlowTube {
 
         @Override
         public void dropSubscription() {
-            SSLTube.DelegateWrapper subscriberImpl = subscribed;
+            var subscriberImpl = subscribed;
             if (subscriberImpl != null) {
                 subscriberImpl.dropSubscription();
             }
@@ -359,10 +375,13 @@ public class SSLTube implements FlowTube {
         private void onSubscribeImpl(Flow.Subscription subscription) {
             assert subscription != null;
             SSLTube.DelegateWrapper subscriberImpl, pending;
-            synchronized (this) {
+            lock.lock();
+            try {
                 readSubscription = subscription;
                 subscriberImpl = subscribed;
                 pending = pendingDelegate.get();
+            } finally {
+                lock.unlock();
             }
 
             if (subscriberImpl == null && pending == null) {
@@ -387,9 +406,8 @@ public class SSLTube implements FlowTube {
             try {
                 if (t == null) subscriberImpl.onComplete();
                 else subscriberImpl.onError(t);
-                if (logger.isDebugEnabled()) {
+                if (logger.isDebugEnabled())
                     logger.debug("subscriber completed " + ((t == null) ? "normally" : ("with error: " + t)));
-                }
             } finally {
                 // Error or EOF while reading: cancel write side after completing read side
                 writeSubscription.cancel();
@@ -410,10 +428,13 @@ public class SSLTube implements FlowTube {
 
             // The following twisted logic is just here that we don't invoke onError before onSubscribe. It also prevents race
             // conditions if onError is invoked concurrently with setDelegate.
-            synchronized (this) {
+            lock.lock();
+            try {
                 failed = this.errorRef.get();
                 completed = onCompleteReceived;
                 subscribed = subscriberImpl;
+            } finally {
+                lock.unlock();
             }
 
             if (failed != null) {
@@ -437,13 +458,16 @@ public class SSLTube implements FlowTube {
             // The following twisted logic is just here that we don't invoke onError before onSubscribe. It also prevents race
             // conditions if onError is invoked concurrently with setDelegate. See setDelegate.
             errorRef.compareAndSet(null, throwable);
-            Throwable failed = errorRef.get();
+            var failed = errorRef.get();
             finished = true;
             if (logger.isDebugEnabled())
                 logger.debug("%s: onErrorImpl: %s", this, throwable);
             SSLTube.DelegateWrapper subscriberImpl;
-            synchronized (this) {
+            lock.lock();
+            try {
                 subscriberImpl = subscribed;
+            } finally {
+                lock.unlock();
             }
             if (subscriberImpl != null) {
                 complete(subscriberImpl, failed);
@@ -462,7 +486,7 @@ public class SSLTube implements FlowTube {
         }
 
         private boolean handshaking() {
-            HandshakeStatus hs = engine.getHandshakeStatus();
+            var hs = engine.getHandshakeStatus();
             return !(hs == NOT_HANDSHAKING || hs == FINISHED);
         }
 
@@ -485,11 +509,14 @@ public class SSLTube implements FlowTube {
         public void onComplete() {
             assert !finished && !onCompleteReceived;
             SSLTube.DelegateWrapper subscriberImpl;
-            synchronized(this) {
+            lock.lock();
+            try {
                 subscriberImpl = subscribed;
+            } finally {
+                lock.unlock();
             }
 
-            String handshakeFailed = handshakeFailed();
+            var handshakeFailed = handshakeFailed();
             if (handshakeFailed != null) {
                 if (logger.isDebugEnabled())
                     logger.debug("handshake: {}, inbound done: {}, outbound done: {}: {}",
@@ -527,21 +554,22 @@ public class SSLTube implements FlowTube {
         private volatile boolean cancelled;
 
         void setSubscription(Flow.Subscription sub) {
-            long demand = writeDemand.get(); // FIXME: isn't it a racy way of passing the demand?
+            var demand = writeDemand.get(); // FIXME: isn't it a racy way of passing the demand?
             delegate = sub;
             if (logger.isDebugEnabled()) logger.debug("setSubscription: demand={}, cancelled:{}", demand, cancelled);
 
-            if (cancelled)
+            if (cancelled) {
                 delegate.cancel();
-            else if (demand > 0)
+            } else if (demand > 0) {
                 sub.request(demand);
+            }
         }
 
         @Override
         public void request(long n) {
             writeDemand.increase(n);
             if (logger.isDebugEnabled()) logger.debug("request: n=" + n);
-            Flow.Subscription sub = delegate;
+            var sub = delegate;
             if (sub != null && n > 0) {
                 sub.request(n);
             }
@@ -550,8 +578,9 @@ public class SSLTube implements FlowTube {
         @Override
         public void cancel() {
             cancelled = true;
-            if (delegate != null)
+            if (delegate != null) {
                 delegate.cancel();
+            }
         }
     }
 
@@ -559,9 +588,10 @@ public class SSLTube implements FlowTube {
     @Override
     public void onSubscribe(Flow.Subscription subscription) {
         Objects.requireNonNull(subscription);
-        Flow.Subscription x = writeSubscription.delegate;
-        if (x != null)
+        var x = writeSubscription.delegate;
+        if (x != null) {
             x.cancel();
+        }
 
         writeSubscription.setSubscription(subscription);
     }
@@ -569,7 +599,7 @@ public class SSLTube implements FlowTube {
     @Override
     public void onNext(Bybu bybu) {
         Objects.requireNonNull(bybu);
-        boolean decremented = writeDemand.tryDecrement();
+        var decremented = writeDemand.tryDecrement();
         assert decremented : "Unexpected writeDemand: ";
         if (logger.isDebugEnabled()) logger.debug("sending {} buffers to SSL flow delegate", bybu.size());
         sslDelegate.upstreamWriter().onNext(bybu);
