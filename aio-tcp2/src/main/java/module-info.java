@@ -6,11 +6,10 @@
  * file that accompanied this code.
  */
 
-rootProject.name = 'aio'
-
-include 'aio-core'
-include 'aio-core2'
-include 'aio-http2'
-include 'aio-tcp'
-include 'aio-tcp2'
-include 'aio-tcp-samples'
+module aio.tcp {
+    requires aio.core2;
+    requires org.slf4j;
+//    exports org.aio.tcp2;
+//    exports org.aio.tcp2.api;
+//    exports org.aio.tcp.common;
+}

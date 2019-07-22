@@ -6,8 +6,9 @@
  * file that accompanied this code.
  */
 
-module aio.core {
+module aio.core2 {
     requires org.slf4j;
-//    exports org.aio.core2;
+    exports org.aio.core2;
+    exports org.aio.core2.api;
     exports org.aio.core2.bybu;
 }
