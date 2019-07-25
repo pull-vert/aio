@@ -38,12 +38,19 @@
 
 package org.aio.core2.api;
 
+import org.aio.core2.bybu.Bybu;
+
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
+ * Endpoint is a server or a client
+ *
  * @author Fred Montariol
  */
 public interface EndpointAPI {
@@ -100,46 +107,61 @@ public interface EndpointAPI {
          */
         Builder sslParameters(SSLParameters sslParameters);
 
-        FirstStagesConfigurer configureStages();
+        InStagesConfigurer<Bybu> inStages();
     }
 
     /**
-     * Configurer for first {@linkplain ChanStages stage} of the SelectableChan
+     * Configure stages on IN(coming) messages
      *
      * @author Fred Montariol
      */
-    @FunctionalInterface
-    interface FirstStagesConfigurer {
+    interface InStagesConfigurer<T> {
 
         /**
-         * Define first stage in {@linkplain ChanStages stage(s)} of the SelectableChan
+         * Evaluate each source value against the given {@link Predicate}. If the predicate test succeeds, the value is
+         * emitted. If the predicate test fails, the value is ignored and a request of 1 is made upstream.
          *
-         * @param name The unique name of the {@link ChanEvtsEmitter} associated with provided {@code chanEvtsHandler}
-         * @param chanEvtsHandler The first Event Handler to add to {@linkplain ChanStages stage(s)} of the SelectableChan
-         * @return The {@link StagesConfigurer} that allows to configure next stage(s) and then build the server
-         * or client
+         * @param p the {@link Predicate} to test values against
+         *
+         * <p>
+         * Exceptions thrown by the predicate are
+         * considered as if the predicate returned false: they cause the source value to be
+         * dropped and a new element ({@code request(1)}) being requested from upstream.
+         * </p>
+         * <p>
+         * This operator discards elements that do not match the filter. It
+         * also discards elements internally queued for backpressure upon cancellation or error triggered by a data signal.
+         * </p>
+         * @return a new {@link InStagesConfigurer} containing only values that pass the predicate test
          */
-        <U extends ChanEvtsHandler> StagesConfigurer stage1(String name, U chanEvtsHandler);
+        InStagesConfigurer<T> filter(Predicate<? super T> p);
+
+        /**
+         * Transform the items emitted by this {@link InStagesConfigurer} by applying a synchronous function
+         * to each item.
+         *
+         * @param mapper the synchronous transforming {@link Function}
+         * @param <V> the transformed type
+         *
+         * <p>
+         * Exceptions thrown by the mapper then cause the
+         * source value to be dropped and a new element ({@code request(1)}) being requested
+         * from upstream.
+         * </p>
+         *
+         * @return a new {@link InStagesConfigurer} containing transformed values
+         */
+        <V> InStagesConfigurer<V> map(Function<? super T, ? extends V> mapper);
     }
 
     /**
-     * Configurer for next {@linkplain ChanStages stage(s)} of the SelectableChan
+     * Configure stages on OUT(going) messages
      * <p>
-     * Provide the {@link #build()} method that instanciate the server
-     * or client
+     * Provide the {@link #build()} method that instantiate the endpoint
      *
      * @author Fred Montariol
      */
-    interface StagesConfigurer {
-
-        /**
-         * Add last stage to {@linkplain ChanStages stage(s)} of the SelectableChan
-         *
-         * @param name The unique name of the {@link ChanEvtsEmitter} associated with provided {@code chanEvtsHandler}
-         * @param chanEvtsHandler The last Event Handler to add to {@linkplain ChanStages stage(s)} of the SelectableChan
-         * @return this StagesConfigurer
-         */
-        <U extends ChanEvtsHandler> StagesConfigurer addLast(String name, U chanEvtsHandler);
+    interface OutStagesConfigurer<T> {
 
         /**
          * Returns a new {@link EndpointAPI} built from the

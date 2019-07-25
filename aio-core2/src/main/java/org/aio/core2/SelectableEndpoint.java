@@ -39,7 +39,6 @@
 package org.aio.core2;
 
 import org.aio.core2.api.ChanEvtsHandler;
-import org.aio.core2.api.ChanStages;
 import org.aio.core2.api.EndpointAPI;
 import org.aio.core2.internal.AsyncTriggerEvent;
 import org.aio.core2.internal.common.BufferSupplier;
@@ -83,17 +82,9 @@ public abstract class SelectableEndpoint implements EndpointAPI {
     /**
      * @author Fred Montariol
      */
-    public abstract static class StagesConfigurer implements EndpointAPI.StagesConfigurer {
-
-        protected final ChanStages chanStages;
+    public abstract static class StagesConfigurer implements InStagesConfigurer<B> {
 
         public <U extends ChanEvtsHandler> StagesConfigurer(String name, U chanEvtsHandler) {
-            chanStages = ChanStages.build();
-            chanStages.stage1(name, chanEvtsHandler);
-        }
-
-        protected <U extends ChanEvtsHandler> void setLast(String name, U chanEvtsHandler) {
-            chanStages.addLast(name, chanEvtsHandler);
         }
     }
 
@@ -105,7 +96,6 @@ public abstract class SelectableEndpoint implements EndpointAPI {
     private final TreeSet<TimeoutEvent> timeouts;
     private final boolean isDefaultExecutor;
     private final DelegatingExecutor delegatingExecutor;
-    private final ChanStages chanStages;
 
     private final Lock lock = new ReentrantLock();
 
@@ -114,7 +104,7 @@ public abstract class SelectableEndpoint implements EndpointAPI {
      *
      * @param IDS the atomic provider for ID
      */
-    protected SelectableEndpoint(AtomicLong IDS, Builder builder, ChanStages chanStages) {
+    protected SelectableEndpoint(AtomicLong IDS, Builder builder) {
         timeouts = new TreeSet<>();
         id = IDS.incrementAndGet();
         var ex = builder.executor;
@@ -132,7 +122,6 @@ public abstract class SelectableEndpoint implements EndpointAPI {
             throw new UncheckedIOException(e);
         }
         selMgr.setDaemon(true);
-        this.chanStages = chanStages;
     }
 
     @Override
@@ -140,11 +129,6 @@ public abstract class SelectableEndpoint implements EndpointAPI {
         return isDefaultExecutor
                 ? Optional.empty()
                 : Optional.of(delegatingExecutor.delegate());
-    }
-
-    @Override
-    public ChanStages getStages() {
-        return chanStages;
     }
 
     /**

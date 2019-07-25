@@ -14,9 +14,9 @@ package org.aio.core2.api;
 public interface ChanEvtsEmitterIn<IN> {
     void notifyChanOpen();
 
-    void notifyNextRead(IN item);
+    void notifyReadNext(IN item);
 
     void notifyReadComplete();
 
-    void notifyError(Throwable throwable);
+    void notifyReadError(Throwable throwable);
 }

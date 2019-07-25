@@ -21,7 +21,7 @@ public interface ChanEvtsEmitterOut<OUT> {
 
     CompletionStage<Void> write(OUT item, CompletableFuture<Void> promise);
 
-    void send();
+//    void send();
 
     // todo needed ?
 //    CompletionStage<Void> closeForSend();

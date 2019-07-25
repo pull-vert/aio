@@ -14,14 +14,54 @@ package org.aio.core2.api;
 public interface ChanEvtsHandlerIn<IN> {
 
     /**
-     * Handle a {@code item} Read Event
+     * Handle a Chan open Event
      * <p>
-     * <b>Default :</b> forwards message to next Channel's Step
+     * <b>This is the default implementation :</b>no op
      *
      * @param evtsEmitter Events Emitter
-     * @param item the item that was read
+     * @param <NEXT_IN> next IN message sent type
+     * @param <OUT> OUT message sent type
      */
-    default <NEXT_IN> void onReadNext(ChanEvtsEmitter<NEXT_IN, ?> evtsEmitter, IN item) {
-        evtsEmitter.notifyNextRead((NEXT_IN) item);
+    default <NEXT_IN, OUT> void onChanOpen(ChanEvtsEmitter<NEXT_IN, OUT> evtsEmitter) {
+    }
+
+    /**
+     * Handle a {@code item} Read Event
+     * <p>
+     * <b>This is the default implementation :</b> forwards message to next Read Channel's step
+     *
+     * @param evtsEmitter Events Emitter
+     * @param item the item to read
+     * @param <NEXT_IN> next IN message sent type
+     * @param <OUT> OUT message sent type
+     */
+    default <NEXT_IN, OUT> void onReadNext(ChanEvtsEmitter<NEXT_IN, OUT> evtsEmitter, IN item) {
+        evtsEmitter.notifyReadNext((NEXT_IN) item);
+    }
+
+    /**
+     * Handle a Chan Read complete
+     * <p>
+     * <b>This is the default implementation :</b>no op
+     *
+     * @param evtsEmitter Events Emitter
+     * @param <NEXT_IN> next IN message sent type
+     * @param <OUT> OUT message sent type
+     */
+    default <NEXT_IN, OUT> void onReadComplete(ChanEvtsEmitter<NEXT_IN, OUT> evtsEmitter) {
+    }
+
+    /**
+     * Handle a Chan Read error
+     * <p>
+     * <b>This is the default implementation :</b>forwards error to next Read Channel's step
+     *
+     * @param evtsEmitter Events Emitter
+     * @param throwable received error
+     * @param <NEXT_IN> next IN message sent type
+     * @param <OUT> OUT message sent type
+     */
+    default <NEXT_IN, OUT> void onReadError(ChanEvtsEmitter<NEXT_IN, OUT> evtsEmitter, Throwable throwable) {
+        evtsEmitter.notifyReadError(throwable);
     }
 }
