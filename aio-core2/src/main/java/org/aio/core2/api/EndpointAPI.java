@@ -44,7 +44,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -65,7 +64,7 @@ public interface EndpointAPI {
         /**
          * Sets the executor to be used for asynchronous and dependent tasks.
          *
-         * <p> If this method is not invoked prior to {@linkplain #configureStages()
+         * <p> If this method is not invoked prior to {@linkplain #inStages()
          * building}, a default executor is used
          *
          * @implNote The default executor uses a thread pool, with a custom
@@ -81,7 +80,7 @@ public interface EndpointAPI {
         /**
          * Sets an {@code SSLContext}.
          *
-         * <p> If this method is not invoked prior to {@linkplain #configureStages()
+         * <p> If this method is not invoked prior to {@linkplain #inStages()
          * building}, connection will not use SSL.
          *
          * @param sslContext the SSLContext
@@ -92,7 +91,7 @@ public interface EndpointAPI {
         /**
          * Sets an {@code SSLParameters}.
          *
-         * <p> If this method is not invoked prior to {@linkplain #configureStages()
+         * <p> If this method is not invoked prior to {@linkplain #inStages()
          * building}, and if {@linkplain #sslContext(SSLContext) SSL Context}
          * was called, then newly built client or server will use a default,
          * implementation specific, set of parameters.
@@ -206,6 +205,4 @@ public interface EndpointAPI {
      * {@code SSLParameters}
      */
     Optional<SSLParameters> getSslParameters();
-
-    ChanStages getStages();
 }
