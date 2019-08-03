@@ -64,8 +64,7 @@ public interface EndpointAPI {
         /**
          * Sets the executor to be used for asynchronous and dependent tasks.
          *
-         * <p> If this method is not invoked prior to {@linkplain #inStages()
-         * building}, a default executor is used
+         * <p> If this method is not invoked prior to {@link #inStages()}, a default executor is used
          *
          * @implNote The default executor uses a thread pool, with a custom
          * thread factory. If a security manager has been installed, the thread
@@ -80,8 +79,7 @@ public interface EndpointAPI {
         /**
          * Sets an {@code SSLContext}.
          *
-         * <p> If this method is not invoked prior to {@linkplain #inStages()
-         * building}, connection will not use SSL.
+         * <p> If this method is not invoked prior to {@link #inStages()}, connection will not use SSL.
          *
          * @param sslContext the SSLContext
          * @return this builder
@@ -91,8 +89,8 @@ public interface EndpointAPI {
         /**
          * Sets an {@code SSLParameters}.
          *
-         * <p> If this method is not invoked prior to {@linkplain #inStages()
-         * building}, and if {@linkplain #sslContext(SSLContext) SSL Context}
+         * <p> If this method is not invoked prior to {@link #inStages()},
+         * and if {@linkplain #sslContext(SSLContext) SSL Context}
          * was called, then newly built client or server will use a default,
          * implementation specific, set of parameters.
          *
